@@ -1,0 +1,50 @@
+# R-specific files
+*.Rproj
+.Rproj.user/
+.Rhistory
+.RData
+.Renviron
+.Rprofile
+
+# Package build and check artifacts
+*.tar.gz
+*.tgz
+*.zip
+.Rcheck/
+src/*.o
+src/*.so
+src/*.dll
+
+# Documentation and temporary files
+man/*.Rd~
+*.log
+*.out
+*.aux
+*.bak
+*.swp
+
+# Test and coverage artifacts
+tests/testthat.Rout
+tests/*.Rout
+covr/
+coverage/
+
+# Common editor/IDE files
+*.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.vscode/
+.idea/
+
+# Miscellaneous
+*.md5
+*.sha1
+*.lock
+NOTES
+TODO
+
+# Exclude build directories
+inst/doc/
+vignettes/*.html
+vignettes/*.pdf
