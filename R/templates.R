@@ -1,4 +1,5 @@
-#' @template param_cov2_info
+#' Parameter cov2_info Template
+#'
 #' @name cov2_info
 #' @param cov2_info `list()`\cr Optional list specifying time-varying covariates with:
 #'   \describe{
