@@ -62,6 +62,7 @@ print(pred)
 \if{html}{\out{<a id="method-LearnerCompRisksFineGrayCRR-new"></a>}}
 \if{latex}{\out{\hypertarget{method-LearnerCompRisksFineGrayCRR-new}{}}}
 \subsection{Method \code{new()}}{
+Creates a new instance of this learner.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LearnerCompRisksFineGrayCRR$new(cov2_info = NULL)}\if{html}{\out{</div>}}
 }
@@ -69,13 +70,7 @@ print(pred)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{cov2_info}}{\code{list()}\cr Optional list specifying time-varying covariates with:
-\describe{
-\item{cov2nms}{\code{character()} Names of numeric covariates in the task.}
-\item{tfun}{\verb{function(uft, task)} Transformation function returning a numeric vector
-(if \code{common_tfun = TRUE}) or matrix with \code{ncol = length(cov2nms)} (if \code{common_tfun = FALSE}).}
-\item{common_tfun}{\code{logical(1)} Whether to apply a common transformation to all covariates (default: \code{TRUE}).}
-}}
+\item{\code{cov2_info}}{See main description for details.}
 }
 \if{html}{\out{</div>}}
 }

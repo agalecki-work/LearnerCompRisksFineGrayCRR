@@ -37,20 +37,10 @@
 LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
+    #' @description
+    #' Creates a new instance of this learner.
+    #' @param cov2_info See main description for details.
     initialize = function(cov2_info = NULL) {
-      ps <- paradox::ps(
-        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train")
-      )
-      ps$values <- list(maxiter = 100L)
-      super$initialize(
-        id = "cmprisk.crr",
-        param_set = ps,
-        feature_types = c("logical", "integer", "numeric", "factor"),
-        predict_types = "cif",
-        packages = c("mlr3proba", "cmprsk", "paradox"),
-        label = "Fine-Gray CRR Model",
-        man = "LearnerCompRisksFineGrayCRR::LearnerCompRisksFineGrayCRR"
-      )
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tfun") %in% names(cov2_info))) {
@@ -64,12 +54,36 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         if (!is.logical(cov2_info$common_tfun)) stop("common_tfun must be logical")
       }
       private$cov2_info <- cov2_info
+
+      ps <- paradox::ps(
+        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train")
+      )
+      ps$values <- list(maxiter = 100L)
+
+      super$initialize(
+        id = "cmprisk.crr",
+        param_set = ps,
+        feature_types = c("logical", "integer", "numeric", "factor"),
+        predict_types = "cif",
+        packages = c("mlr3proba", "cmprsk", "paradox"),
+        label = "Fine-Gray CRR Model",
+        man = "LearnerCompRisksFineGrayCRR::LearnerCompRisksFineGrayCRR"
+      )
     }
   ),
   private = list(
-    # ... (unchanged private fields and methods) ...
+    models = NULL,
+    event_times = NULL,
+    coefficients = NULL,
+    cov2 = NULL,
+    tf = NULL,
+    feature_names = NULL,
+    cov2_names = NULL,
+    cov2_info = NULL,
+    all_event_times = NULL,
+    # ... (unchanged .train and .predict methods) ...
     .train = function(task, row_ids = task$row_ids) {
-      pv <- self$param_set$get_values(tags = "train")  # Only maxiter here
+      pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
       features <- task$feature_names
       time_col <- task$target_names[1]
@@ -120,7 +134,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       invisible(self)
     },
     .predict = function(task, row_ids = task$row_ids) {
-      # ... (unchanged predict method, uses failcode = 1L internally) ...
+      # ... (unchanged predict method) ...
     }
   )
 )
