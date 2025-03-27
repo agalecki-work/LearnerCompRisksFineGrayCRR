@@ -6,14 +6,14 @@
 \description{
 A learner for Fine-Gray competing risks regression using \code{\link[cmprsk:crr]{cmprsk::crr()}} within
 the \code{mlr3proba} framework. Models cumulative incidence functions (CIFs) for
-competing risks, supporting both fixed and time-varying covariates.
+competing risks, supporting both fixed and time-varying covariates. The learner
+automatically trains a model for each event type defined in the task, treating
+the task's censoring code (typically 0) as the baseline.
 }
 \section{Parameters}{
 
 \describe{
-\item{failcode}{\code{integer(1)}\cr Event code of interest (default: 1).}
-\item{cencode}{\code{integer(1)}\cr Censoring code (default: 0).}
-\item{maxiter}{\code{integer(1)}\cr Maximum iterations for convergence (default: 100).}
+\item{maxiter}{\code{integer(1)}\cr Maximum iterations for convergence (default: 100, range: 1 to 1000).}
 }
 }
 
@@ -62,7 +62,6 @@ print(pred)
 \if{html}{\out{<a id="method-LearnerCompRisksFineGrayCRR-new"></a>}}
 \if{latex}{\out{\hypertarget{method-LearnerCompRisksFineGrayCRR-new}{}}}
 \subsection{Method \code{new()}}{
-Creates a new instance of this learner.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LearnerCompRisksFineGrayCRR$new(cov2_info = NULL)}\if{html}{\out{</div>}}
 }
@@ -70,7 +69,13 @@ Creates a new instance of this learner.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{cov2_info}}{Optional list for time-varying covariates.}
+\item{\code{cov2_info}}{\code{list()}\cr Optional list specifying time-varying covariates with:
+\describe{
+\item{cov2nms}{\code{character()} Names of numeric covariates in the task.}
+\item{tfun}{\verb{function(uft, task)} Transformation function returning a numeric vector
+(if \code{common_tfun = TRUE}) or matrix with \code{ncol = length(cov2nms)} (if \code{common_tfun = FALSE}).}
+\item{common_tfun}{\code{logical(1)} Whether to apply a common transformation to all covariates (default: \code{TRUE}).}
+}}
 }
 \if{html}{\out{</div>}}
 }
