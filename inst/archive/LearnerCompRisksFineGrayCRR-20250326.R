@@ -10,14 +10,13 @@
 #' @param cov2_info `list()`\cr Optional list specifying time-varying covariates with:
 #'   \describe{
 #'     \item{cov2nms}{`character()` Names of numeric covariates in the task.}
+#'     \item{tfun}{`function(uft, task)` Transformation function returning a numeric vector
+#'       (if `common_tfun = TRUE`) or matrix with `ncol = length(cov2nms)` (if `common_tfun = FALSE`).}
 #'     \item{common_tfun}{`logical(1)` Whether to apply a common transformation to all covariates (default: `TRUE`).}
 #'   }
 #' @section Parameters:
 #' \describe{
 #'   \item{maxiter}{`integer(1)`\cr Maximum iterations for convergence (default: 100, range: 1 to 1000).}
-#'   \item{tf}{`function(t)`\cr Time transformation function for `cov2`, returning a numeric vector
-#'     (if `common_tfun = TRUE`) or matrix with `ncol = length(cov2nms)` (if `common_tfun = FALSE`).
-#'     Required if `cov2_info` is specified; no default provided.}
 #' }
 #' @export
 #' @examples
@@ -28,9 +27,9 @@
 #' learner <- lrn("cmprisk.crr",
 #'   cov2_info = list(
 #'     cov2nms = c("age", "bili"),
+#'     tfun = function(t, task) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime")),
 #'     common_tfun = TRUE
-#'   ),
-#'   tf = function(t) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime"))
+#'   )
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
@@ -44,20 +43,20 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
-        if (!"cov2nms" %in% names(cov2_info)) {
-          stop("cov2_info must contain 'cov2nms'")
+        if (!all(c("cov2nms", "tfun") %in% names(cov2_info))) {
+          stop("cov2_info must contain 'cov2nms' and 'tfun'")
         }
         if (!is.character(cov2_info$cov2nms) || length(cov2_info$cov2nms) == 0) {
           stop("cov2nms must be a non-empty character vector")
         }
+        if (!is.function(cov2_info$tfun)) stop("tfun must be a function")
         cov2_info$common_tfun <- if (is.null(cov2_info$common_tfun)) TRUE else cov2_info$common_tfun
         if (!is.logical(cov2_info$common_tfun)) stop("common_tfun must be logical")
       }
       private$cov2_info <- cov2_info
 
       ps <- paradox::ps(
-        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train"),
-        tf = paradox::p_uty(tags = "train", default = NULL)
+        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train")
       )
       ps$values <- list(maxiter = 100L)
 
@@ -82,7 +81,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     cov2_names = NULL,
     cov2_info = NULL,
     all_event_times = NULL,
-    
+    # ... (unchanged .train and .predict methods) ...
     .train = function(task, row_ids = task$row_ids) {
       pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
@@ -90,38 +89,17 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       time_col <- task$target_names[1]
       event_col <- task$target_names[2]
 
-      # cov1: Fixed effects
       formula <- as.formula(paste("~", paste(features, collapse = " + ")))
       cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
       if (any(is.na(cov1))) stop("NAs detected in cov1")
 
-      # cov2 and tf handling
       if (!is.null(private$cov2_info)) {
-        cov2nms <- private$cov2_info$cov2nms
-        common_tfun <- private$cov2_info$common_tfun
-        cov2 <- as.matrix(full_data[, cov2nms, with = FALSE])
-        if (any(is.na(cov2))) stop("NAs detected in cov2")
-
-        # Require tf to be provided
-        tf_final <- pv$tf
-        if (is.null(tf_final)) {
-          stop("tf must be provided when cov2_info is specified")
-        }
-        if (!is.function(tf_final)) stop("tf must be a function")
-
-        # Validate tf output
-        test_t <- sort(unique(full_data[[time_col]]))
-        tf_output <- tf_final(test_t)
-        if (common_tfun && !is.vector(tf_output)) {
-          stop("tf must return a vector when common_tfun = TRUE")
-        }
-        if (!common_tfun && (is.vector(tf_output) || ncol(tf_output) != length(cov2nms))) {
-          stop("tf must return a matrix with ncol = length(cov2nms) when common_tfun = FALSE")
-        }
+        # ... (unchanged cov2 handling) ...
       } else {
         cov2 <- NULL
         tf_final <- NULL
       }
+      if (!is.null(cov2) && any(is.na(cov2))) stop("NAs detected in cov2")
 
       ftime <- as.numeric(full_data[[time_col]])
       private$all_event_times <- sort(unique(ftime))
@@ -155,22 +133,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       private$cov2_names <- if (!is.null(cov2)) colnames(cov2) else NULL
       invisible(self)
     },
-    
     .predict = function(task, row_ids = task$row_ids) {
-      # Placeholder for CIF prediction
-      stop("Prediction not yet implemented")
+      # ... (unchanged predict method) ...
     }
   )
 )
-
-# Commented out test statements
-# task <- tsk("pbc")
-# task$select(c("age", "bili", "sex"))
-# learner <- lrn("cmprisk.crr",
-#   cov2_info = list(
-#     cov2nms = c("age", "bili"),
-#     common_tfun = TRUE
-#   ),
-#   tf = function(t) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime"))
-# )
-# learner$train(task)

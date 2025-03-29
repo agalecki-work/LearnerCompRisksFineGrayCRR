@@ -14,6 +14,9 @@ the task's censoring code (typically 0) as the baseline.
 
 \describe{
 \item{maxiter}{\code{integer(1)}\cr Maximum iterations for convergence (default: 100, range: 1 to 1000).}
+\item{tf}{\verb{function(t)}\cr Time transformation function for \code{cov2}, returning a numeric vector
+(if \code{common_tfun = TRUE}) or matrix with \code{ncol = length(cov2nms)} (if \code{common_tfun = FALSE}).
+Required if \code{cov2_info} is specified; no default provided.}
 }
 }
 
@@ -25,9 +28,9 @@ task$select(c("age", "bili", "sex"))
 learner <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "bili"),
-    tfun = function(t, task) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime")),
     common_tfun = TRUE
-  )
+  ),
+  tf = function(t) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime"))
 )
 learner$train(task)
 pred <- learner$predict(task)
