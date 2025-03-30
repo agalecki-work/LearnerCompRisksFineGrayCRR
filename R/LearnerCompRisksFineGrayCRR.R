@@ -17,28 +17,21 @@
 #' list must contain the following elements:
 #'   \describe{
 #'     \item{cov2nms}{`character()`\cr A vector of covariate names from the task’s 
-#'       feature set that should be treated as time-varying. These must be numeric 
-#'       (`integer` or `numeric`) features available in the task at training time; 
-#'       factors or other types are not supported.}
-#'     \item{tfun}{`function(uft, task)`\cr A user-defined function specifying how 
-#'       the covariates in `cov2nms` vary over time. It takes two arguments: 
-#'       `uft` (a numeric vector of unique failure times from the training data) 
-#'       and `task` (the training task object). The function must return:
+#'       feature set that should be treated as time-varying. These must be features 
+#'       available in the task at training time.}
+#'     \item{tf}{`function(uft)`\cr A user-defined function specifying how the 
+#'       covariates in `cov2nms` vary over time. It takes one argument: `uft` (a 
+#'       numeric vector of unique failure times from the training data). The 
+#'       function’s behavior is described in the [cmprsk::crr()] documentation and 
+#'       must return a matrix with:
 #'       \itemize{
-#'         \item A numeric vector of length `length(uft)` if `common_tfun = TRUE`, 
-#'           representing a single time-varying effect applied to all covariates 
-#'           in `cov2nms`.
-#'         \item A matrix with `nrow = length(uft)` and `ncol = length(cov2nms)` 
-#'           if `common_tfun = FALSE`, where each column corresponds to a unique 
-#'           time-varying effect for each covariate in `cov2nms`.
+#'         \item `nrow = length(uft)` (matching the number of unique failure times).
+#'         \item `ncol` equal to the number of columns in the `cov2` matrix (derived 
+#'           from `cov2nms` via `model.matrix`), where each column corresponds to a 
+#'           time-varying effect for each column in `cov2`.
 #'       }
-#'       Example: `function(uft, task) matrix(log(uft), ncol = 1)` applies a 
-#'       logarithmic transformation to all times.}
-#'     \item{common_tfun}{`logical(1)`\cr Determines whether a single transformation 
-#'       function (`tfun`) is applied uniformly to all covariates in `cov2nms` 
-#'       (`TRUE`, default) or a separate transformation is provided for each 
-#'       covariate (`FALSE`). If `TRUE`, `tfun` must return a vector; if `FALSE`, 
-#'       it must return a matrix with columns matching the number of `cov2nms`.}
+#'       Example: `function(uft) matrix(log(uft), ncol = 1)` applies a logarithmic 
+#'       transformation when `cov2` has one column.}
 #'   }
 #'   If `cov2_info` is `NULL` (default), the learner treats all covariates as fixed.
 #'
@@ -60,9 +53,8 @@
 #' # Define a learner with time-varying covariates
 #' learner <- lrn("cmprisk.crr",
 #'   cov2_info = list(
-#'     cov2nms = c("age", "bili"),
-#'     tfun = function(t, task) matrix(log(t), ncol = 1, dimnames = list(NULL, "logtime")),
-#'     common_tfun = TRUE
+#'     cov2nms = c("age", "sex"),
+#'     tf = function(uft) cbind(log(uft), log(uft + 1))  # Matches ncol(cov2) = 2
 #'   )
 #' )
 #' # Train the learner
@@ -79,15 +71,13 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
-        if (!all(c("cov2nms", "tfun") %in% names(cov2_info))) {
-          stop("cov2_info must contain 'cov2nms' and 'tfun'")
+        if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
+          stop("cov2_info must contain 'cov2nms' and 'tf'")
         }
         if (!is.character(cov2_info$cov2nms) || length(cov2_info$cov2nms) == 0) {
           stop("cov2nms must be a non-empty character vector")
         }
-        if (!is.function(cov2_info$tfun)) stop("tfun must be a function")
-        cov2_info$common_tfun <- if (is.null(cov2_info$common_tfun)) TRUE else cov2_info$common_tfun
-        if (!is.logical(cov2_info$common_tfun)) stop("common_tfun must be logical")
+        if (!is.function(cov2_info$tf)) stop("tf must be a function")
       }
       private$cov2_info <- cov2_info
 
@@ -117,7 +107,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     cov2_names = NULL,
     cov2_info = NULL,
     all_event_times = NULL,
-    # ... (unchanged .train and .predict methods) ...
     .train = function(task, row_ids = task$row_ids) {
       pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
@@ -131,56 +120,33 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
 
       if (!is.null(private$cov2_info)) {
         cov2nms <- private$cov2_info$cov2nms
-        tf <- private$cov2_info$tfun
-        common_tfun <- private$cov2_info$common_tfun
-        allowed_types <- c("integer", "numeric")
+        tf <- private$cov2_info$tf
 
         for (nm in cov2nms) {
           if (!nm %in% features) {
             stop(sprintf("cov2nms element '%s' not found in task features", nm))
           }
-          feature_type <- task$feature_types$type[task$feature_types$id == nm]
-          if (!feature_type %in% allowed_types) {
-            stop(sprintf("cov2nms element '%s' must be numeric (integer or numeric), not '%s'", nm, feature_type))
-          }
         }
 
-        cov2 <- as.matrix(full_data[, cov2nms, with = FALSE])
+        # Create cov2 by binding model.matrix results for each feature in cov2nms
+        cov2_list <- lapply(cov2nms, function(nm) {
+          model.matrix(as.formula(paste("~", nm)), data = full_data)[, -1, drop = FALSE]
+        })
+        cov2 <- do.call(cbind, cov2_list)
+        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)  # Convert to vector if only one column
         uft <- unique(as.numeric(full_data[[time_col]]))
 
-        if (common_tfun) {
-          if (length(unique(cov2nms)) != length(cov2nms)) {
-            stop("cov2nms must not contain repeats when common_tfun = TRUE")
-          }
-          tf_out <- tf(uft, task)
-          if (!is.numeric(tf_out) && !is.matrix(tf_out)) {
-            stop("tfun must return a numeric vector or matrix when common_tfun = TRUE")
-          }
-          if (is.matrix(tf_out) && ncol(tf_out) > 1) {
-            stop("tfun must return a single-column matrix or vector when common_tfun = TRUE")
-          }
-          tf_vec <- if (is.matrix(tf_out)) tf_out[, 1] else tf_out
-          if (length(tf_vec) != length(uft)) {
-            stop("tfun output length must match number of unique failure times")
-          }
-          tf_matrix <- matrix(rep(tf_vec, length(cov2nms)), nrow = length(uft), ncol = length(cov2nms))
-          tf_name <- if (is.matrix(tf_out) && !is.null(colnames(tf_out))) colnames(tf_out)[1] else "tf"
-          tf_names <- paste(cov2nms, tf_name, sep = "*")
-          colnames(tf_matrix) <- tf_names
-          tf_final <- function(uft_new, task) {
-            idx <- match(uft_new, uft)
-            tf_matrix[idx, , drop = FALSE]
-          }
-        } else {
-          tf_out <- tf(uft, task)
-          if (!is.matrix(tf_out) || ncol(tf_out) != length(cov2nms)) {
-            stop(sprintf("tfun must return a matrix with %d columns (length(cov2nms)) when common_tfun = FALSE", length(cov2nms)))
-          }
-          if (nrow(tf_out) != length(uft)) {
-            stop("tfun output must have rows equal to unique failure times")
-          }
-          tf_final <- tf
+        tf_out <- tf(uft)
+        if (!is.matrix(tf_out)) {
+          stop("tf must return a matrix")
         }
+        if (nrow(tf_out) != length(uft)) {
+          stop("tf output must have rows equal to unique failure times")
+        }
+        if (ncol(tf_out) != ncol(as.matrix(cov2))) {
+          stop(sprintf("tf must return a matrix with %d columns (matching cov2 columns)", ncol(as.matrix(cov2))))
+        }
+        tf_final <- tf
       } else {
         cov2 <- NULL
         tf_final <- NULL
@@ -216,7 +182,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       private$cov2 <- cov2
       private$tf <- tf_final
       private$feature_names <- features
-      private$cov2_names <- if (!is.null(cov2)) colnames(cov2) else NULL
+      private$cov2_names <- if (!is.null(cov2)) colnames(as.matrix(cov2)) else NULL
       invisible(self)
     },
     .predict = function(task, row_ids = task$row_ids) {
@@ -231,7 +197,12 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
 
       if (!is.null(private$cov2_info)) {
         cov2nms <- private$cov2_info$cov2nms
-        cov2 <- as.matrix(newdata[, cov2nms, with = FALSE])
+        # Create cov2 for prediction using the same logic as in training
+        cov2_list <- lapply(cov2nms, function(nm) {
+          model.matrix(as.formula(paste("~", nm)), data = newdata)[, -1, drop = FALSE]
+        })
+        cov2 <- do.call(cbind, cov2_list)
+        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)  # Convert to vector if only one column
         tf <- private$tf
       } else {
         cov2 <- NULL
