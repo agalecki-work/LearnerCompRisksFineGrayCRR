@@ -9,7 +9,7 @@
 #' multiple mutually exclusive events may occur. It supports both fixed covariates 
 #' and time-varying covariates through a flexible transformation function. During 
 #' training, the learner fits a separate model for each event type specified in 
-#' the task’s `cmp_events`, using the task’s `status` column to distinguish events 
+#' the task's `cmp_events`, using the task's `status` column to distinguish events 
 #' from censoring (where the censoring code is conventionally set to 0 in the task 
 #' definition). Predictions are generated for all event types across all unique 
 #' event times observed in the training data.
@@ -18,13 +18,13 @@
 #' enabling the learner to model covariate effects that change over time. This 
 #' list must contain the following elements:
 #'   \describe{
-#'     \item{cov2nms}{`character()`\cr A vector of covariate names from the task’s 
+#'     \item{cov2nms}{`character()`\cr A vector of covariate names from the task's 
 #'       feature set that should be treated as time-varying. These must be features 
 #'       available in the task at training time.}
 #'     \item{tf}{`function(uft)`\cr A user-defined function specifying how the 
 #'       covariates in `cov2nms` vary over time. It takes one argument: `uft` (a 
 #'       numeric vector of unique failure times from the training data). The 
-#'       function’s behavior is described in the [cmprsk::crr()] documentation and 
+#'       function's behavior is described in the [cmprsk::crr()] documentation and 
 #'       must return a matrix with:
 #'       \itemize{
 #'         \item `nrow = length(uft)` (matching the number of unique failure times).

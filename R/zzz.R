@@ -1,7 +1,7 @@
 # File: R/zzz.R
 
-#' @importFrom mlr3misc dictionary_sugar_get
+#' @importFrom mlr3 mlr_learners
 .onLoad <- function(libname, pkgname) { # nolint
-  # Register the learner in mlr3proba's learners dictionary
-  mlr3misc::dictionary_sugar_get("mlr_learners", "cmprisk.crr") <- LearnerCompRisksFineGrayCRR
+  # Register the learner with mlr3's learners dictionary
+  mlr_learners$add("cmprisk.crr", LearnerCompRisksFineGrayCRR)
 }
