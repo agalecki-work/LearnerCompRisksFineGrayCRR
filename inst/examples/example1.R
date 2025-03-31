@@ -21,6 +21,8 @@ crr_learner = lrn("cmprisk.crr",
     tf = function(uft) cbind(log(uft), log(uft + 1))
   )
 )
+crr_learner$train(task, part$train)
+names(crr_learner)
 
 pred = crr_learner$train(task, part$train)$predict(task, part$test)
 typeof(pred)

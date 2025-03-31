@@ -69,14 +69,16 @@
 #' pred <- learner$predict(task)
 #' print(pred)
 #'
-#' # For advanced cov2_info variations, see:
+#' # For other cov2_info variations, see:
 #' # system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
 LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
     #' @description
-    #' Creates a new instance of this learner.
-    #' @param cov2_info See main description for details.
+    #' Initializes a new instance of the Fine-Gray Competing Risks Regression Learner.
+    #' @param cov2_info Optional list specifying time-varying covariate configuration,
+    #' as detailed in the main documentation. If NULL (default), all covariates are
+    #' treated as fixed effects.
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
@@ -87,7 +89,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
           stop("cov2nms must be a non-empty character vector")
         }
         if (!is.function(cov2_info$tf)) stop("tf must be a function")
-        # Handle cov2only
         if (is.null(cov2_info$cov2only)) {
           cov2_info$cov2only <- NULL
         } else {
@@ -116,15 +117,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     }
   ),
   private = list(
-    models = NULL,
-    event_times = NULL,
-    coefficients = NULL,
-    cov2 = NULL,
-    tf = NULL,
-    feature_names = NULL,
-    cov2_names = NULL,
     cov2_info = NULL,
-    all_event_times = NULL,
     .train = function(task, row_ids = task$row_ids) {
       pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
@@ -132,7 +125,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       time_col <- task$target_names[1]
       event_col <- task$target_names[2]
 
-      # Define cov1 features, excluding cov2only if specified
       if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
         cov1_features <- features
       } else {
@@ -149,28 +141,21 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       if (!is.null(private$cov2_info)) {
         cov2nms <- private$cov2_info$cov2nms
         tf <- private$cov2_info$tf
-
         for (nm in cov2nms) {
           if (!nm %in% features) {
             stop(sprintf("cov2nms element '%s' not found in task features", nm))
           }
         }
-
-        # Create cov2 by binding model.matrix results for each feature in cov2nms
         cov2_list <- lapply(cov2nms, function(nm) {
           model.matrix(as.formula(paste("~", nm)), data = full_data)[, -1, drop = FALSE]
         })
         cov2 <- do.call(cbind, cov2_list)
-        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)  # Convert to vector if only one column
+        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
         uft <- unique(as.numeric(full_data[[time_col]]))
 
         tf_out <- tf(uft)
-        if (!is.matrix(tf_out)) {
-          stop("tf must return a matrix")
-        }
-        if (nrow(tf_out) != length(uft)) {
-          stop("tf output must have rows equal to unique failure times")
-        }
+        if (!is.matrix(tf_out)) stop("tf must return a matrix")
+        if (nrow(tf_out) != length(uft)) stop("tf output must have rows equal to unique failure times")
         if (ncol(tf_out) != ncol(as.matrix(cov2))) {
           stop(sprintf("tf must return a matrix with %d columns (matching cov2 columns)", ncol(as.matrix(cov2))))
         }
@@ -182,7 +167,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       if (!is.null(cov2) && any(is.na(cov2))) stop("NAs detected in cov2")
 
       ftime <- as.numeric(full_data[[time_col]])
-      private$all_event_times <- sort(unique(ftime))
+      all_event_times <- sort(unique(ftime))
 
       models <- list()
       event_times <- list()
@@ -205,13 +190,14 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         models[[target_event]] <- model
       }
 
-      private$models <- models
-      private$event_times <- event_times
-      private$cov2 <- cov2
-      private$tf <- tf_final
-      private$feature_names <- features
-      private$cov2_names <- if (!is.null(cov2)) colnames(as.matrix(cov2)) else NULL
-      invisible(self)
+      self$state$event_times <- event_times
+      self$state$cov2 <- cov2
+      self$state$tf <- tf_final
+      self$state$feature_names <- features
+      self$state$cov2_names <- if (!is.null(cov2)) colnames(as.matrix(cov2)) else NULL
+      self$state$all_event_times <- all_event_times
+      
+      models
     },
     .predict = function(task, row_ids = task$row_ids) {
       newdata <- task$data(rows = row_ids)
@@ -219,7 +205,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       cif_list <- vector("list", length(event_levels))
       names(cif_list) <- event_levels
 
-      # Define cov1 features for prediction, excluding cov2only if specified
       if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
         cov1_features <- task$feature_names
       } else {
@@ -240,18 +225,18 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         })
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
-        tf <- private$tf
+        tf <- self$state$tf
       } else {
         cov2 <- NULL
         tf <- NULL
       }
       if (!is.null(cov2) && any(is.na(cov2))) stop("NAs detected in cov2")
 
-      all_times <- private$all_event_times
+      all_times <- self$state$all_event_times
       all_times_char <- as.character(all_times)
 
       for (event in event_levels) {
-        model <- private$models[[event]]
+        model <- self$state$model[[event]]
         if (is.null(model)) stop(sprintf("No model available for event %s", event))
         pred <- tryCatch({
           pred_raw <- predict(model, cov1 = cov1, cov2 = cov2, tf = tf, time = all_times)

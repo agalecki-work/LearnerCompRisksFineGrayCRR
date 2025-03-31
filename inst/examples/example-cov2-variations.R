@@ -1,95 +1,62 @@
-# Example: Variations of cov2_info in LearnerCompRisksFineGrayCRR
-library(LearnerCompRisksFineGrayCRR)
+# Example usage of LearnerCompRisksFineGrayCRR with various cov2_info configurations
+
 library(mlr3)
 library(mlr3proba)
+library(LearnerCompRisksFineGrayCRR)
 
-# Load and prepare the pbc task
+# Prepare the task
 task <- tsk("pbc")
-task$select(c("age", "bili", "sex"))
-print(task)
+task$select(c("age", "sex", "bili"))
+set.seed(123)
 
-# Variation 1: No cov2_info (fixed covariates only)
-cat("\nVariation 1: No cov2_info (fixed covariates only)\n")
-learner1 <- lrn("cmprisk.crr")
-learner1$train(task)
-pred1 <- learner1$predict(task)
-cat("Model summary for event 1:\n")
-print(learner1$model[[1]])
-cat("Prediction object:\n")
-print(pred1)
+# 1. No cov2_info: All covariates treated as fixed
+learner_no_cov2 <- lrn("cmprisk.crr")
+learner_no_cov2$train(task)
+pred_no_cov2 <- learner_no_cov2$predict(task)
+print(pred_no_cov2)
 
-# Variation 2: Numeric covariates (age, bili) with log and quadratic transformations
-cat("\nVariation 2: Numeric covariates (age, bili) with log and quadratic tf\n")
-learner2 <- lrn("cmprisk.crr",
+# 2. Numeric predictors with a two-column transformation function
+learner_numeric <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "bili"),
-    tf = function(uft) cbind(log(uft), uft^2)
+    tf = function(uft) cbind(log(uft), log(uft + 1))
   )
 )
-learner2$train(task)
-pred2 <- learner2$predict(task)
-cat("Model summary for event 1:\n")
-print(learner2$model[[1]])
-cat("Prediction object:\n")
-print(pred2)
+learner_numeric$train(task)
+pred_numeric <- learner_numeric$predict(task)
+print(pred_numeric)
 
-# Variation 3: Mixed numeric and factor (age, sex) with log transformations
-cat("\nVariation 3: Mixed numeric and factor (age, sex) with log transformations\n")
-learner3 <- lrn("cmprisk.crr",
+# 3. Mixed numeric and factor variables with a two-column transformation
+learner_mixed <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),
     tf = function(uft) cbind(log(uft), log(uft + 1))
   )
 )
-learner3$train(task)
-pred3 <- learner3$predict(task)
-cat("Model summary for event 1:\n")
-print(learner3$model[[1]])
-cat("Prediction object:\n")
-print(pred3)
+learner_mixed$train(task)
+pred_mixed <- learner_mixed$predict(task)
+print(pred_mixed)
 
-# Variation 4: Repeated covariate (age) with linear and exponential transformations
-cat("\nVariation 4: Repeated covariate (age) with linear and exponential tf\n")
-learner4 <- lrn("cmprisk.crr",
+# 4. Repeated covariates in cov2nms
+learner_repeats <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "age"),
-    tf = function(uft) cbind(uft, exp(uft / 1000))
+    tf = function(uft) cbind(log(uft), uft)
   )
 )
-learner4$train(task)
-pred4 <- learner4$predict(task)
-cat("Model summary for event 1:\n")
-print(learner4$model[[1]])
-cat("Prediction object:\n")
-print(pred4)
+learner_repeats$train(task)
+pred_repeats <- learner_repeats$predict(task)
+print(pred_repeats)
 
-# Variation 5: Single covariate (bili) with cubic transformation
-cat("\nVariation 5: Single covariate (bili) with cubic tf\n")
-learner5 <- lrn("cmprisk.crr",
-  cov2_info = list(
-    cov2nms = c("bili"),
-    tf = function(uft) matrix(uft^3, ncol = 1)
-  )
-)
-learner5$train(task)
-pred5 <- learner5$predict(task)
-cat("Model summary for event 1:\n")
-print(learner5$model[[1]])
-cat("Prediction object:\n")
-print(pred5)
-
-# Variation 6: cov2only with bili as time-varying only
-cat("\nVariation 6: cov2only with bili as time-varying only\n")
-learner6 <- lrn("cmprisk.crr",
+# 5. cov2only: Bili as time-varying only
+learner_cov2only <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "bili"),
     tf = function(uft) cbind(log(uft), uft),
     cov2only = c("bili")
   )
 )
-learner6$train(task)
-pred6 <- learner6$predict(task)
-cat("Model summary for event 1:\n")
-print(learner6$model[[1]])
-cat("Prediction object:\n")
-print(pred6)
+learner_cov2only$train(task)
+pred_cov2only <- learner_cov2only$predict(task)
+print(pred_cov2only)
+print(names(learner_cov2only$state$model[[1]]$coef))  # Check coefficients
