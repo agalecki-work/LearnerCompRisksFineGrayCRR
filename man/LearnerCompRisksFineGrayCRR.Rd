@@ -5,44 +5,44 @@
 \title{Fine-Gray Competing Risks Regression Learner}
 \description{
 A learner implementing the Fine-Gray competing risks regression model using
-\code{\link[cmprsk:crr]{cmprsk::crr()}} within the \code{mlr3proba} framework. This learner estimates
+cmprsk::crr() within the mlr3proba framework. This learner estimates
 cumulative incidence functions (CIFs) for competing risks scenarios, where
-multiple mutually exclusive events may occur. It supports both fixed covariates
-and time-varying covariates through a flexible transformation function. During
-training, the learner fits a separate model for each event type specified in
-the task's \code{cmp_events}, using the task's \code{status} column to distinguish events
-from censoring (where the censoring code is conventionally set to 0 in the task
-definition). Predictions are generated for all event types across all unique
-event times observed in the training data.
+multiple mutually exclusive events may occur. It supports both fixed
+covariates and time-varying covariates through a flexible transformation
+function. During training, the learner fits a separate model for each event
+type specified in the task's 'cmp_events', using the task's 'status' column
+to distinguish events from censoring (where the censoring code is
+conventionally set to 0 in the task definition). Predictions are generated
+for all event types across all unique event times observed in the training
+data.
 }
 \section{Parameters}{
 
 \describe{
-\item{maxiter}{\code{integer(1)}\cr Maximum number of iterations for the
-\code{cmprsk::crr()} optimization algorithm to converge. Default is 100, with
-a valid range of 1 to 1000. Increase this value if convergence issues arise
-with complex datasets.}
+\item{maxiter}{'integer(1)'\cr
+Maximum number of iterations for the cmprsk::crr() optimization algorithm
+to converge. Default is 100, with a valid range of 1 to 1000. Increase
+this value if convergence issues arise with complex datasets.}
 }
 }
 
 \examples{
 library(mlr3)
 library(mlr3proba)
-# Load the PBC dataset as a competing risks task
 task <- tsk("pbc")
 task$select(c("age", "bili", "sex"))
-# Define a learner with time-varying covariates
 learner <- lrn("cmprisk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),
-    tf = function(uft) cbind(log(uft), log(uft + 1))  # Matches ncol(cov2) = 2
+    tf = function(uft) cbind(log(uft), log(uft + 1))
   )
 )
-# Train the learner
 learner$train(task)
-# Predict CIFs for all event types
 pred <- learner$predict(task)
 print(pred)
+
+# For advanced cov2_info variations, see:
+# system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
 }
 \section{Super classes}{
 \code{\link[mlr3:Learner]{mlr3::Learner}} -> \code{\link[mlr3proba:LearnerCompRisks]{mlr3proba::LearnerCompRisks}} -> \code{LearnerCompRisksFineGrayCRR}

@@ -3,67 +3,74 @@
 #' Fine-Gray Competing Risks Regression Learner
 #'
 #' @description
-#' A learner implementing the Fine-Gray competing risks regression model using 
-#' [cmprsk::crr()] within the `mlr3proba` framework. This learner estimates 
-#' cumulative incidence functions (CIFs) for competing risks scenarios, where 
-#' multiple mutually exclusive events may occur. It supports both fixed covariates 
-#' and time-varying covariates through a flexible transformation function. During 
-#' training, the learner fits a separate model for each event type specified in 
-#' the task's `cmp_events`, using the task's `status` column to distinguish events 
-#' from censoring (where the censoring code is conventionally set to 0 in the task 
-#' definition). Predictions are generated for all event types across all unique 
-#' event times observed in the training data.
+#' A learner implementing the Fine-Gray competing risks regression model using
+#' cmprsk::crr() within the mlr3proba framework. This learner estimates
+#' cumulative incidence functions (CIFs) for competing risks scenarios, where
+#' multiple mutually exclusive events may occur. It supports both fixed
+#' covariates and time-varying covariates through a flexible transformation
+#' function. During training, the learner fits a separate model for each event
+#' type specified in the task's 'cmp_events', using the task's 'status' column
+#' to distinguish events from censoring (where the censoring code is
+#' conventionally set to 0 in the task definition). Predictions are generated
+#' for all event types across all unique event times observed in the training
+#' data.
 #'
-#' @param cov2_info `list()`\cr Optional configuration for time-varying covariates, 
-#' enabling the learner to model covariate effects that change over time. This 
-#' list must contain the following elements:
-#'   \describe{
-#'     \item{cov2nms}{`character()`\cr A vector of covariate names from the task's 
-#'       feature set that should be treated as time-varying. These must be features 
-#'       available in the task at training time.}
-#'     \item{tf}{`function(uft)`\cr A user-defined function specifying how the 
-#'       covariates in `cov2nms` vary over time. It takes one argument: `uft` (a 
-#'       numeric vector of unique failure times from the training data). The 
-#'       function's behavior is described in the [cmprsk::crr()] documentation and 
-#'       must return a matrix with:
-#'       \itemize{
-#'         \item `nrow = length(uft)` (matching the number of unique failure times).
-#'         \item `ncol` equal to the number of columns in the `cov2` matrix (derived 
-#'           from `cov2nms` via `model.matrix`), where each column corresponds to a 
-#'           time-varying effect for each column in `cov2`.
-#'       }
-#'       Example: `function(uft) matrix(log(uft), ncol = 1)` applies a logarithmic 
-#'       transformation when `cov2` has one column.}
-#'   }
-#'   If `cov2_info` is `NULL` (default), the learner treats all covariates as fixed.
+#' @param cov2_info 'list()'\cr
+#' Optional configuration for time-varying covariates, enabling the learner to
+#' model covariate effects that change over time. This list must contain:
+#' \describe{
+#'   \item{cov2nms}{'character()'\cr
+#'     A vector of covariate names from the task's feature set that should be
+#'     treated as time-varying. These must be features available in the task
+#'     at training time.}
+#'   \item{tf}{'function(uft)'\cr
+#'     A user-defined function specifying how the covariates in 'cov2nms' vary
+#'     over time. It takes one argument: 'uft' (a numeric vector of unique
+#'     failure times from the training data). The function's behavior is
+#'     described in the cmprsk::crr() documentation and must return a matrix
+#'     with:\cr
+#'     - 'nrow = length(uft)' (matching the number of unique failure times).\cr
+#'     - 'ncol' equal to the number of columns in the 'cov2' matrix (derived
+#'       from 'cov2nms' via 'model.matrix'), where each column corresponds to a
+#'       time-varying effect for each column in 'cov2'.\cr
+#'     Example: 'function(uft) matrix(log(uft), ncol = 1)' applies a logarithmic
+#'     transformation when 'cov2' has one column.}
+#'   \item{cov2only}{'character()' or 'NULL'\cr
+#'     A vector of covariate names that are used solely to build the
+#'     time-varying covariate matrix ('cov2') and excluded from the fixed
+#'     covariate matrix ('cov1'). Must be a subset of 'cov2nms'. If 'NULL'
+#'     (default), all features in the task contribute to 'cov1', and 'cov2nms'
+#'     defines 'cov2'.}
+#' }
+#' If 'cov2_info' is 'NULL' (default), the learner treats all covariates as
+#' fixed.
 #'
 #' @section Parameters:
 #' \describe{
-#'   \item{maxiter}{`integer(1)`\cr Maximum number of iterations for the 
-#'     `cmprsk::crr()` optimization algorithm to converge. Default is 100, with 
-#'     a valid range of 1 to 1000. Increase this value if convergence issues arise 
-#'     with complex datasets.}
+#'   \item{maxiter}{'integer(1)'\cr
+#'     Maximum number of iterations for the cmprsk::crr() optimization algorithm
+#'     to converge. Default is 100, with a valid range of 1 to 1000. Increase
+#'     this value if convergence issues arise with complex datasets.}
 #' }
 #'
 #' @export
 #' @examples
 #' library(mlr3)
 #' library(mlr3proba)
-#' # Load the PBC dataset as a competing risks task
 #' task <- tsk("pbc")
 #' task$select(c("age", "bili", "sex"))
-#' # Define a learner with time-varying covariates
 #' learner <- lrn("cmprisk.crr",
 #'   cov2_info = list(
 #'     cov2nms = c("age", "sex"),
-#'     tf = function(uft) cbind(log(uft), log(uft + 1))  # Matches ncol(cov2) = 2
+#'     tf = function(uft) cbind(log(uft), log(uft + 1))
 #'   )
 #' )
-#' # Train the learner
 #' learner$train(task)
-#' # Predict CIFs for all event types
 #' pred <- learner$predict(task)
 #' print(pred)
+#'
+#' # For advanced cov2_info variations, see:
+#' # system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
 LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
@@ -80,6 +87,15 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
           stop("cov2nms must be a non-empty character vector")
         }
         if (!is.function(cov2_info$tf)) stop("tf must be a function")
+        # Handle cov2only
+        if (is.null(cov2_info$cov2only)) {
+          cov2_info$cov2only <- NULL
+        } else {
+          if (!is.character(cov2_info$cov2only)) stop("cov2only must be a character vector or NULL")
+          if (!all(cov2_info$cov2only %in% cov2_info$cov2nms)) {
+            stop("cov2only must be a subset of cov2nms")
+          }
+        }
       }
       private$cov2_info <- cov2_info
 
@@ -116,9 +132,19 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       time_col <- task$target_names[1]
       event_col <- task$target_names[2]
 
-      formula <- as.formula(paste("~", paste(features, collapse = " + ")))
-      cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
-      if (any(is.na(cov1))) stop("NAs detected in cov1")
+      # Define cov1 features, excluding cov2only if specified
+      if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
+        cov1_features <- features
+      } else {
+        cov1_features <- setdiff(features, private$cov2_info$cov2only)
+      }
+      if (length(cov1_features) > 0) {
+        formula <- as.formula(paste("~", paste(cov1_features, collapse = " + ")))
+        cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
+        if (any(is.na(cov1))) stop("NAs detected in cov1")
+      } else {
+        cov1 <- NULL
+      }
 
       if (!is.null(private$cov2_info)) {
         cov2nms <- private$cov2_info$cov2nms
@@ -193,18 +219,27 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       cif_list <- vector("list", length(event_levels))
       names(cif_list) <- event_levels
 
-      formula <- as.formula(paste("~", paste(task$feature_names, collapse = " + ")))
-      cov1 <- model.matrix(formula, data = newdata)[, -1, drop = FALSE]
-      if (any(is.na(cov1))) stop("NAs detected in cov1")
+      # Define cov1 features for prediction, excluding cov2only if specified
+      if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
+        cov1_features <- task$feature_names
+      } else {
+        cov1_features <- setdiff(task$feature_names, private$cov2_info$cov2only)
+      }
+      if (length(cov1_features) > 0) {
+        formula <- as.formula(paste("~", paste(cov1_features, collapse = " + ")))
+        cov1 <- model.matrix(formula, data = newdata)[, -1, drop = FALSE]
+        if (any(is.na(cov1))) stop("NAs detected in cov1")
+      } else {
+        cov1 <- NULL
+      }
 
       if (!is.null(private$cov2_info)) {
         cov2nms <- private$cov2_info$cov2nms
-        # Create cov2 for prediction using the same logic as in training
         cov2_list <- lapply(cov2nms, function(nm) {
           model.matrix(as.formula(paste("~", nm)), data = newdata)[, -1, drop = FALSE]
         })
         cov2 <- do.call(cbind, cov2_list)
-        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)  # Convert to vector if only one column
+        if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
         tf <- private$tf
       } else {
         cov2 <- NULL
