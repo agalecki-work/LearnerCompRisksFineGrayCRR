@@ -7,9 +7,10 @@ install_github("agalecki-work/LearnerCompRisksFineGrayCRR")
 Verify:
 
 ```
+library(mlr3)
 library(LearnerCompRisksFineGrayCRR)
-learner <- LearnerCompRisksFineGrayCRR$new()
-print(learner)
+learner <- lrn("cmprsk.crr")
+print(learner$id)  # Should print "cmprsk.crr"
 ```
 
 Examples

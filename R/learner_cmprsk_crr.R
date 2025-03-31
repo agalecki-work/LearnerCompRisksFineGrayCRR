@@ -1,4 +1,4 @@
-# File: R/learner_cmprisk_crr.R
+# File: R/learner_cmprsk_crr.R
 
 #' Fine-Gray Competing Risks Regression Learner
 #'
@@ -59,7 +59,7 @@
 #' library(mlr3proba)
 #' task <- tsk("pbc")
 #' task$select(c("age", "bili", "sex"))
-#' learner <- lrn("cmprisk.crr",
+#' learner <- lrn("cmprsk.crr",
 #'   cov2_info = list(
 #'     cov2nms = c("age", "sex"),
 #'     tf = function(uft) cbind(log(uft), log(uft + 1))
@@ -106,7 +106,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       ps$values <- list(maxiter = 100L)
 
       super$initialize(
-        id = "cmprisk.crr",
+        id = "cmprsk.crr",
         param_set = ps,
         feature_types = c("logical", "integer", "numeric", "factor"),
         predict_types = "cif",

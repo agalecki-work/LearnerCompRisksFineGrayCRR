@@ -13,13 +13,13 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   part <- partition(task, ratio = 0.7)
 
   # Test 1: No cov2_info
-  learner <- lrn("cmprisk.crr")
+  learner <- lrn("cmprsk.crr")
   expect_true({learner$train(task, part$train); TRUE})
   pred <- learner$predict(task, part$test)
   expect_true(inherits(pred, "PredictionCompRisks"))
 
   # Test 2: Numeric predictors with tf returning a two-column matrix
-  learner_numeric <- lrn("cmprisk.crr",
+  learner_numeric <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "bili"),
       tf = function(uft) cbind(log(uft), log(uft + 1))
@@ -30,7 +30,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_true(inherits(pred_numeric, "PredictionCompRisks"))
 
   # Test 3: Mixed numeric and factor variables with tf returning a two-column matrix
-  learner_mixed <- lrn("cmprisk.crr",
+  learner_mixed <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "sex"),
       tf = function(uft) cbind(log(uft), log(uft + 1))
@@ -41,7 +41,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_true(inherits(pred_mixed, "PredictionCompRisks"))
 
   # Test 4: Repeats in cov2nms with tf returning a two-column matrix
-  learner_repeats <- lrn("cmprisk.crr",
+  learner_repeats <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "age"),
       tf = function(uft) cbind(log(uft), uft)
@@ -52,7 +52,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_true(inherits(pred_repeats, "PredictionCompRisks"))
 
   # Test 5: cov2only with bili as time-varying only
-  learner_cov2only <- lrn("cmprisk.crr",
+  learner_cov2only <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "bili"),
       tf = function(uft) cbind(log(uft), uft),
