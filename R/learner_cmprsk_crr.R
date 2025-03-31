@@ -69,16 +69,16 @@
 #' pred <- learner$predict(task)
 #' print(pred)
 #'
-#' # For other cov2_info variations, see:
+#' # For advanced cov2_info variations, see:
 #' # system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
 LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
     #' @description
     #' Initializes a new instance of the Fine-Gray Competing Risks Regression Learner.
-    #' @param cov2_info Optional list specifying time-varying covariate configuration,
-    #' as detailed in the main documentation. If NULL (default), all covariates are
-    #' treated as fixed effects.
+    #' @param cov2_info Optional list specifying time-varying covariate configuration.
+    #' See the class documentation (\code{?LearnerCompRisksFineGrayCRR}) for full details.
+    #' If NULL (default), all covariates are treated as fixed effects.
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")

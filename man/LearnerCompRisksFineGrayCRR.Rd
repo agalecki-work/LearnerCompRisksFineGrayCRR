@@ -41,7 +41,7 @@ learner$train(task)
 pred <- learner$predict(task)
 print(pred)
 
-# For other cov2_info variations, see:
+# For advanced cov2_info variations, see:
 # system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
 }
 \section{Super classes}{
@@ -81,9 +81,9 @@ Initializes a new instance of the Fine-Gray Competing Risks Regression Learner.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{cov2_info}}{Optional list specifying time-varying covariate configuration,
-as detailed in the main documentation. If NULL (default), all covariates are
-treated as fixed effects.}
+\item{\code{cov2_info}}{Optional list specifying time-varying covariate configuration.
+See the class documentation (\code{?LearnerCompRisksFineGrayCRR}) for full details.
+If NULL (default), all covariates are treated as fixed effects.}
 }
 \if{html}{\out{</div>}}
 }
