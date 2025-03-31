@@ -7,12 +7,17 @@ library(LearnerCompRisksFineGrayCRR)
 # Prepare the task
 task <- tsk("pbc")
 task$select(c("age", "sex", "bili"))
-set.seed(123)
+cat("\n task with selected predictors")
+print(task)
 
-# 1. No cov2_info: All covariates treated as fixed
+# 1. No cov2_info: All predictors treated as fixed
 learner_no_cov2 <- lrn("cmprsk.crr")
 learner_no_cov2$train(task)
+cat("\n -- FG Model:  All predictors treated as fixed")
+print(learner_no_cov2$model)
+
 pred_no_cov2 <- learner_no_cov2$predict(task)
+cat("\n Predicted values")
 print(pred_no_cov2)
 
 # 2. Numeric predictors with a two-column transformation function
@@ -23,8 +28,9 @@ learner_numeric <- lrn("cmprsk.crr",
   )
 )
 learner_numeric$train(task)
-pred_numeric <- learner_numeric$predict(task)
-print(pred_numeric)
+cat("\n -- FG Model: Numeric predictors with a two-column transformation function")
+print(learner_numeric$model)
+
 
 # 3. Mixed numeric and factor variables with a two-column transformation
 learner_mixed <- lrn("cmprsk.crr",
@@ -34,8 +40,9 @@ learner_mixed <- lrn("cmprsk.crr",
   )
 )
 learner_mixed$train(task)
-pred_mixed <- learner_mixed$predict(task)
-print(pred_mixed)
+cat("\n -- FG Model:  Mixed numeric and factor variables with a two-column transformation")
+print(learner_mixed$model)
+
 
 # 4. Repeated covariates in cov2nms
 learner_repeats <- lrn("cmprsk.crr",
@@ -45,8 +52,8 @@ learner_repeats <- lrn("cmprsk.crr",
   )
 )
 learner_repeats$train(task)
-pred_repeats <- learner_repeats$predict(task)
-print(pred_repeats)
+cat("\n -- FG Model:  Repeated covariates in cov2nms")
+print(learner_repeats$model)
 
 # 5. cov2only: Bili as time-varying only
 learner_cov2only <- lrn("cmprsk.crr",
@@ -57,6 +64,6 @@ learner_cov2only <- lrn("cmprsk.crr",
   )
 )
 learner_cov2only$train(task)
-pred_cov2only <- learner_cov2only$predict(task)
-print(pred_cov2only)
-print(names(learner_cov2only$state$model[[1]]$coef))  # Check coefficients
+learner_cov2only$predict(task)
+cat("\n -- FG Model:  cov2only: Bili as time-varying only")
+print(learner_cov2only$model)

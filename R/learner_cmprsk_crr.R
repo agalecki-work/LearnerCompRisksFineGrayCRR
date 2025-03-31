@@ -33,8 +33,8 @@
 #'     - 'ncol' equal to the number of columns in the 'cov2' matrix (derived
 #'       from 'cov2nms' via 'model.matrix'), where each column corresponds to a
 #'       time-varying effect for each column in 'cov2'.\cr
-#'     Example: 'function(uft) matrix(log(uft), ncol = 1)' applies a logarithmic
-#'     transformation when 'cov2' has one column.}
+#'     Example: 'function(uft) log(uft)' applies a logarithmic transformation
+#'     to the time points.}
 #'   \item{cov2only}{'character()' or 'NULL'\cr
 #'     A vector of covariate names that are used solely to build the
 #'     time-varying covariate matrix ('cov2') and excluded from the fixed
@@ -76,9 +76,34 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   public = list(
     #' @description
     #' Initializes a new instance of the Fine-Gray Competing Risks Regression Learner.
-    #' @param cov2_info Optional list specifying time-varying covariate configuration.
-    #' See the class documentation (\code{?LearnerCompRisksFineGrayCRR}) for full details.
-    #' If NULL (default), all covariates are treated as fixed effects.
+    #'
+    #' @param cov2_info 'list()' \cr
+    #' Optional configuration for time-varying covariates, enabling the learner to
+    #' model covariate effects that change over time. If 'NULL' (default), all
+    #' covariates are treated as fixed effects. When provided, this list must contain:
+    #' \describe{
+    #'   \item{cov2nms}{'character()'\cr
+    #'     A vector of covariate names from the task's feature set that should be
+    #'     treated as time-varying. These must be features available in the task
+    #'     at training time.}
+    #'   \item{tf}{'function(uft)'\cr
+    #'     A user-defined function specifying how the covariates in 'cov2nms' vary
+    #'     over time. It takes one argument: 'uft' (a numeric vector of unique
+    #'     failure times from the training data). The function must return a matrix
+    #'     with:\cr
+    #'     - 'nrow = length(uft)' (matching the number of unique failure times).\cr
+    #'     - 'ncol' equal to the number of columns in the 'cov2' matrix (derived
+    #'       from 'cov2nms' via 'model.matrix'), where each column corresponds to a
+    #'       time-varying effect for each column in 'cov2'.\cr
+    #'     Example: 'function(uft) log(uft)' applies a logarithmic transformation
+    #'     to the time points.}
+    #'   \item{cov2only}{'character()' or 'NULL'\cr
+    #'     A vector of covariate names that are used solely to build the
+    #'     time-varying covariate matrix ('cov2') and excluded from the fixed
+    #'     covariate matrix ('cov1'). Must be a subset of 'cov2nms'. If 'NULL'
+    #'     (default), all features in the task contribute to 'cov1', and 'cov2nms'
+    #'     defines 'cov2'.}
+    #' }
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
