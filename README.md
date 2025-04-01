@@ -11,7 +11,7 @@ library(devtools)
 install_github("agalecki-work/LearnerCompRisksFineGrayCRR")
 ```
 
-## Requiremnent
+## Requirement
 
 Check whether `LearnerCompRisks` generator is defined in your `mlr3proba` installation
 
