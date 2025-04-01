@@ -4,7 +4,7 @@ library(mlr3)
 library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)
 
-cat("\n example3-cov2-variations.R\n")
+cat("\n -- example3-cov2-variations.R executed \n")
 
 # Prepare the task
 task <- tsk("pbc")
@@ -15,7 +15,7 @@ print(task)
 # 1. No cov2_info: All predictors treated as fixed
 learner_no_cov2 <- lrn("cmprsk.crr")
 learner_no_cov2$train(task)
-cat("\n -- FG Model:  All predictors treated as fixed \n")
+cat("\n -- FG Model 1:  All predictors treated as fixed \n")
 print(learner_no_cov2$model)
 
 pred_no_cov2 <- learner_no_cov2$predict(task)
@@ -30,7 +30,7 @@ learner_numeric <- lrn("cmprsk.crr",
   )
 )
 learner_numeric$train(task)
-cat("\n -- FG Model: Numeric predictors with a two-column transformation function \n")
+cat("\n -- FG Model 2: Numeric predictors with a two-column transformation function \n")
 print(learner_numeric$model)
 
 
@@ -42,7 +42,7 @@ learner_mixed <- lrn("cmprsk.crr",
   )
 )
 learner_mixed$train(task)
-cat("\n -- FG Model:  Mixed numeric and factor variables with a two-column transformation \n")
+cat("\n -- FG Model 3:  Mixed numeric and factor variables with a two-column transformation \n")
 print(learner_mixed$model)
 
 
@@ -54,7 +54,7 @@ learner_repeats <- lrn("cmprsk.crr",
   )
 )
 learner_repeats$train(task)
-cat("\n -- FG Model:  Repeated covariates in cov2nms \n")
+cat("\n -- FG Model 4:  Repeated covariates in cov2nms \n")
 print(learner_repeats$model)
 
 # 5. cov2only: Bili as time-varying only
@@ -67,5 +67,5 @@ learner_cov2only <- lrn("cmprsk.crr",
 )
 learner_cov2only$train(task)
 learner_cov2only$predict(task)
-cat("\n -- FG Model:  cov2only: Bili as time-varying only \n")
+cat("\n -- FG Model 5:  cov2only: Bili as time-varying only \n")
 print(learner_cov2only$model)

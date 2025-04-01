@@ -4,11 +4,11 @@ library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)
 library(data.table)
 
-cat("\n -- `example4-crr-compare.R` executed")
+cat("\n -- `example4-crr-compare.R` executed \n")
 # Prepare the task
 task <- tsk("pbc")
 task$select(c("sex", "bili", "age"))
-cat("\n task with selected predictors")
+cat("\n task with selected predictors \n")
 print(task)
 
 
@@ -28,7 +28,7 @@ learner_mixed <- lrn("cmprsk.crr",
   )
 )
 learner_mixed$train(task)
-cat("\n -- FG Model (mlr3):  Mixed numeric and factor variables with a two-column transformation")
+cat("\n -- FG Model (mlr3):  Mixed numeric and factor variables with a two-column transformation \n")
 print(learner_mixed$model)
 
 # For comparison use `cmprsk.crr` directly
@@ -40,8 +40,8 @@ status = dt$status
 cov1 = model.matrix(~ age + bili + sex, data = dt)[,-1]
 cov2 = model.matrix(~ sex + bili, data = dt)[, -1]
 
-cat("\n -- crr results for failcode = 1")
+cat("\n -- crr results for failcode = 1 \n")
 print(crr(time, status, cov1, cov2,tf, failcode=1))
 
-cat("\n -- crr results for failcode = 2")
+cat("\n -- crr results for failcode = 2 \n")
 crr(time, status, cov1, cov2,tf, failcode=2)
