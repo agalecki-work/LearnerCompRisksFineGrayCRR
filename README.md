@@ -12,6 +12,15 @@ install_github("agalecki-work/LearnerCompRisksFineGrayCRR")Verify:
 
 ```
 
+## Requiremnent
+
+Check whether `LearnerCompRisks` generator is defined in `mlr3proba`
+
+```
+class(mlr3proba::LearnerCompRisks) # Should print "R6ClassGenerator"
+
+```
+
 ## Verification
 
 ```
@@ -27,14 +36,14 @@ Explore example usage included with the package:
 
 
 ```
-# list of examples in the examples directory 
-xpath =system.file("examples", package= "LearnerCompRisksFineGrayCRR")
-(exList= list.files(xpath, pattern = "*.R"))
+# list examples in the examples directory 
+xpath = system.file("examples", package= "LearnerCompRisksFineGrayCRR")
+(exList = list.files(xpath, pattern = "*.R"))
 
 ```
 
 ```
-# Select example from exList vector
+# Select example from `exList` vector
 ex = exList[1]
 source(system.file(paste0("examples/", ex), package = "LearnerCompRisksFineGrayCRR"))
 

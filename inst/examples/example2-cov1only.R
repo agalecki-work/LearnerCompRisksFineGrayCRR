@@ -15,10 +15,10 @@ set.seed(123)
 part = partition(task, ratio=0.7)
 
 # Define learner
-# 
+ 
 crr_learner = lrn("cmprsk.crr")
 crr_learner$train(task, part$train)
-cat("\n FG model fit")
+cat("\n -- FG model fit")
 print(crr_learner$model)
 
 cat("\n -- predicted vlues ")
