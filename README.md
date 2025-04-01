@@ -8,13 +8,12 @@ Install the package directly from GitHub:
 
 ```
 library(devtools)
-install_github("agalecki-work/LearnerCompRisksFineGrayCRR")Verify:
-
+install_github("agalecki-work/LearnerCompRisksFineGrayCRR")
 ```
 
 ## Requiremnent
 
-Check whether `LearnerCompRisks` generator is defined in `mlr3proba`
+Check whether `LearnerCompRisks` generator is defined in your `mlr3proba` installation
 
 ```
 class(mlr3proba::LearnerCompRisks) # Should print "R6ClassGenerator"

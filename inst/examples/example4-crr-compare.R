@@ -4,15 +4,15 @@ library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)
 library(data.table)
 
+cat("\n -- `example4-crr-compare.R` executed")
 # Prepare the task
 task <- tsk("pbc")
 task$select(c("sex", "bili", "age"))
 cat("\n task with selected predictors")
 print(task)
 
-summary(task)
 
-# 3. Mixed factor variables with a four-column transformation
+# 3. Mixed factor variables with a two-column transformation
 
 tf = function(uft){
     tmtx =cbind(uft, uft)
