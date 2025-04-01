@@ -4,10 +4,11 @@ library(mlr3)
 library(mlr3proba)
 library(data.table)
 
+cat("\n -- example2-cov1only.R executed")
 # Load and prepare the pbc task
 task = tsk("pbc")
 task$select(c("age", "bili", "sex"))
-cat("\n -- pbc task")
+cat("\n -- pbc task \n")
 print(task)
 
 # Initial partition
@@ -18,11 +19,11 @@ part = partition(task, ratio=0.7)
  
 crr_learner = lrn("cmprsk.crr")
 crr_learner$train(task, part$train)
-cat("\n -- FG model fit")
+cat("\n -- FG model fit \n")
 print(crr_learner$model)
 
-cat("\n -- predicted vlues ")
+cat("\n -- predicted vlues \n")
 pred = crr_learner$train(task, part$train)$predict(task, part$test)
 print(pred)
-cat("\n -- CIF list structure) 
+cat("\n -- CIF list structure \n") 
 print(str(pred$cif))
