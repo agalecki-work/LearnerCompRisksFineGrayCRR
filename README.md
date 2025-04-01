@@ -27,10 +27,16 @@ Explore example usage included with the package:
 
 
 ```
-# Locate the examples directory
-pkg = "LearnerCompRisksFineGrayCRR"
-system.file("examples", package= pkg)
-source(system.file("examples/example-cov2-variations.R", package = pkg))
+# list of examples in the examples directory 
+xpath =system.file("examples", package= "LearnerCompRisksFineGrayCRR")
+(exList= list.files(xpath, pattern = "*.R"))
+
+```
+
+```
+# Select example from exList vector
+ex = exList[1]
+source(system.file(paste0("examples/", ex), package = "LearnerCompRisksFineGrayCRR"))
 
 ```
 

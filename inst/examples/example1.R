@@ -7,32 +7,22 @@ library(data.table)
 # Load and prepare the pbc task
 task = tsk("pbc")
 task$select(c("age", "bili", "sex"))
+cat("\n -- pbc task")
+print(task)
 
 # Initial partition
 set.seed(123)
 part = partition(task, ratio=0.7)
 
-# Define learners with time-varying covariates
-
+# Define learner
 # 
-crr_learner = lrn("cmprisk.crr",
-  cov2_info = list(
-    cov2nms = c("age", "sex"),
-    tf = function(uft) cbind(log(uft), log(uft + 1))
-  )
-)
+crr_learner = lrn("cmprsk.crr")
 crr_learner$train(task, part$train)
-names(crr_learner)
+cat("\n FG model fit")
+print(crr_learner$model)
 
+cat("\n -- predicted vlues ")
 pred = crr_learner$train(task, part$train)$predict(task, part$test)
-typeof(pred)
-class(pred)
-methods(class="Prediction")
-methods(class="PredictionCompRisks")
-
-pred_dt = as.data.table(pred)
-pred_dt = dim(pred_dt)
-dim(pred_dt) # 83 obs  x 4 vars
-head(pred_dt)
-
-str(pred$cif)
+print(pred)
+cat("\n -- CIF list structure) 
+print(str(pred$cif))
