@@ -1,57 +1,46 @@
-# File: R/learner_cmprsk_crr.R
-
-#' Fine-Gray Competing Risks Regression Learner
+#' @templateVar title Fine-Gray Competing Risks Regression
+#' @templateVar fullname LearnerCompRisksFineGrayCRR
+#' @templateVar caller [cmprsk::crr()]
+#' @templateVar distr cumulative incidence functions (CIFs)
+#' @templateVar id cmprsk.crr
+#' @template cmprsk_learner
 #'
 #' @description
-#' A learner implementing the Fine-Gray competing risks regression model using
-#' cmprsk::crr() within the mlr3proba framework. This learner estimates
-#' cumulative incidence functions (CIFs) for competing risks scenarios, where
-#' multiple mutually exclusive events may occur. It supports both fixed
-#' covariates and time-varying covariates through a flexible transformation
-#' function. During training, the learner fits a separate model for each event
-#' type specified in the task's 'cmp_events', using the task's 'status' column
-#' to distinguish events from censoring (where the censoring code is
-#' conventionally set to 0 in the task definition). Predictions are generated
-#' for all event types across all unique event times observed in the training
-#' data.
+#' A learner for Fine-Gray competing risks regression, implemented via [cmprsk::crr()]
+#' within the mlr3proba framework. This learner estimates cumulative incidence functions
+#' (CIFs) for competing risks scenarios with multiple mutually exclusive events.
+#' It supports fixed and time-varying covariates through a user-defined transformation
+#' function. Models are fitted for each event type specified in the task's `cmp_events`,
+#' with censoring coded as 0 in the task's `status` column. Predictions provide CIFs
+#' for all event types across unique event times from training data.
 #'
-#' @param cov2_info 'list()'\cr
-#' Optional configuration for time-varying covariates, enabling the learner to
-#' model covariate effects that change over time. This list must contain:
+#' @param cov2_info `list()` \cr
+#' Optional configuration for time-varying covariates. If `NULL` (default), all covariates
+#' are treated as fixed. When provided, the list must contain:
 #' \describe{
-#'   \item{cov2nms}{'character()'\cr
-#'     A vector of covariate names from the task's feature set that should be
-#'     treated as time-varying. These must be features available in the task
-#'     at training time.}
-#'   \item{tf}{'function(uft)'\cr
-#'     A user-defined function specifying how the covariates in 'cov2nms' vary
-#'     over time. It takes one argument: 'uft' (a numeric vector of unique
-#'     failure times from the training data). The function's behavior is
-#'     described in the cmprsk::crr() documentation and must return a matrix
-#'     with:\cr
-#'     - 'nrow = length(uft)' (matching the number of unique failure times).\cr
-#'     - 'ncol' equal to the number of columns in the 'cov2' matrix (derived
-#'       from 'cov2nms' via 'model.matrix'), where each column corresponds to a
-#'       time-varying effect for each column in 'cov2'.\cr
-#'     Example: 'function(uft) log(uft)' applies a logarithmic transformation
-#'     to the time points.}
-#'   \item{cov2only}{'character()' or 'NULL'\cr
-#'     A vector of covariate names that are used solely to build the
-#'     time-varying covariate matrix ('cov2') and excluded from the fixed
-#'     covariate matrix ('cov1'). Must be a subset of 'cov2nms'. If 'NULL'
-#'     (default), all features in the task contribute to 'cov1', and 'cov2nms'
-#'     defines 'cov2'.}
+#'   \item{cov2nms}{`character()` \cr
+#'     Names of covariates from the task's feature set to treat as time-varying.}
+#'   \item{tf}{`function(uft)` \cr
+#'     Function specifying time-varying effects, taking a numeric vector `uft` (unique
+#'     failure times) and returning a matrix with `nrow = length(uft)` and `ncol`
+#'     matching the columns of the `cov2` matrix derived from `cov2nms`. Example:
+#'     `function(uft) log(uft)`.}
+#'   \item{cov2only}{`character()` or `NULL` \cr
+#'     Covariate names used only for `cov2` and excluded from fixed covariates (`cov1`).
+#'     Must be a subset of `cov2nms`. If `NULL` (default), all task features contribute
+#'     to `cov1`.}
 #' }
-#' If 'cov2_info' is 'NULL' (default), the learner treats all covariates as
-#' fixed.
 #'
-#' @section Parameters:
+#' @section Methods:
 #' \describe{
-#'   \item{maxiter}{'integer(1)'\cr
-#'     Maximum number of iterations for the cmprsk::crr() optimization algorithm
-#'     to converge. Default is 100, with a valid range of 1 to 1000. Increase
-#'     this value if convergence issues arise with complex datasets.}
+#'   \item{`convergence()`}{Returns a named list indicating convergence status for each
+#'     event model (TRUE/FALSE).}
+#'   \item{`importance()`}{Returns a data frame with coefficient-based variable importance
+#'     for each event, scaled by absolute coefficient sums.}
 #' }
+#'
+#' @references
+#' `r format_bib("fine_1999")`
 #'
 #' @export
 #' @examples
@@ -62,48 +51,26 @@
 #' learner <- lrn("cmprsk.crr",
 #'   cov2_info = list(
 #'     cov2nms = c("age", "sex"),
-#'     tf = function(uft) cbind(log(uft), log(uft + 1))
-#'   )
+#'     tf = function(uft) cbind(log(uft), log(uft + 1)),
+#'     cov2only = "sex"
+#'   ),
+#'   parallel = FALSE,
+#'   maxiter = 100,
+#'   ctol = 1e-6
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
 #' print(pred)
-#'
-#' # For advanced cov2_info variations, see:
-#' # system.file("examples/example-cov2-variations.R", package = "LearnerCompRisksFineGrayCRR")
+#' learner$convergence()
+#' learner$importance()
 LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
     #' @description
-    #' Initializes a new instance of the Fine-Gray Competing Risks Regression Learner.
+    #' Creates a new instance of this [R6][R6::R6Class] class.
     #'
-    #' @param cov2_info 'list()' \cr
-    #' Optional configuration for time-varying covariates, enabling the learner to
-    #' model covariate effects that change over time. If 'NULL' (default), all
-    #' covariates are treated as fixed effects. When provided, this list must contain:
-    #' \describe{
-    #'   \item{cov2nms}{'character()'\cr
-    #'     A vector of covariate names from the task's feature set that should be
-    #'     treated as time-varying. These must be features available in the task
-    #'     at training time.}
-    #'   \item{tf}{'function(uft)'\cr
-    #'     A user-defined function specifying how the covariates in 'cov2nms' vary
-    #'     over time. It takes one argument: 'uft' (a numeric vector of unique
-    #'     failure times from the training data). The function must return a matrix
-    #'     with:\cr
-    #'     - 'nrow = length(uft)' (matching the number of unique failure times).\cr
-    #'     - 'ncol' equal to the number of columns in the 'cov2' matrix (derived
-    #'       from 'cov2nms' via 'model.matrix'), where each column corresponds to a
-    #'       time-varying effect for each column in 'cov2'.\cr
-    #'     Example: 'function(uft) log(uft)' applies a logarithmic transformation
-    #'     to the time points.}
-    #'   \item{cov2only}{'character()' or 'NULL'\cr
-    #'     A vector of covariate names that are used solely to build the
-    #'     time-varying covariate matrix ('cov2') and excluded from the fixed
-    #'     covariate matrix ('cov1'). Must be a subset of 'cov2nms'. If 'NULL'
-    #'     (default), all features in the task contribute to 'cov1', and 'cov2nms'
-    #'     defines 'cov2'.}
-    #' }
+    #' @param cov2_info `list()` \cr
+    #' Optional configuration for time-varying covariates. See class description for details.
     initialize = function(cov2_info = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
@@ -126,23 +93,58 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       private$cov2_info <- cov2_info
 
       ps <- paradox::ps(
-        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train")
+        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train"),
+        ctol = paradox::p_dbl(default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"),
+        parallel = paradox::p_lgl(default = FALSE, tags = "train")
       )
-      ps$values <- list(maxiter = 100L)
+      ps$values <- list(maxiter = 100L, ctol = 1e-6, parallel = FALSE)
 
       super$initialize(
         id = "cmprsk.crr",
         param_set = ps,
         feature_types = c("logical", "integer", "numeric", "factor"),
         predict_types = "cif",
-        packages = c("mlr3proba", "cmprsk", "paradox"),
-        label = "Fine-Gray CRR Model",
-        man = "LearnerCompRisksFineGrayCRR::LearnerCompRisksFineGrayCRR"
+        packages = c("mlr3proba", "cmprsk", "paradox", "future.apply"),
+        label = "Fine-Gray Competing Risks Regression",
+        man = "mlr3proba::mlr_learners_cmprsk.crr"
       )
+    },
+
+    #' @description
+    #' Returns convergence status for each event model.
+    #' @return Named list with TRUE/FALSE for each event.
+    convergence = function() {
+      if (is.null(self$state$convergence)) {
+        stop("Model has not been trained yet")
+      }
+      return(self$state$convergence)
+    },
+
+    #' @description
+    #' Returns coefficient-based variable importance for each event.
+    #' @return Data frame with columns: variable, importance, event.
+    importance = function() {
+      if (is.null(self$state$model)) {
+        stop("Model has not been trained yet")
+      }
+      importance <- lapply(names(self$state$model), function(event) {
+        coefs <- self$state$model[[event]]$coef
+        abs_coefs <- abs(coefs)
+        sum_coefs <- sum(abs_coefs, na.rm = TRUE)
+        if (sum_coefs == 0) sum_coefs <- 1 # Avoid division by zero
+        data.frame(
+          variable = names(coefs),
+          importance = abs_coefs / sum_coefs,
+          event = event
+        )
+      })
+      do.call(rbind, importance)
     }
   ),
+
   private = list(
     cov2_info = NULL,
+
     .train = function(task, row_ids = task$row_ids) {
       pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
@@ -150,6 +152,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
       time_col <- task$target_names[1]
       event_col <- task$target_names[2]
 
+      # Cache covariate matrices
       if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
         cov1_features <- features
       } else {
@@ -159,8 +162,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         formula <- as.formula(paste("~", paste(cov1_features, collapse = " + ")))
         cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
         if (any(is.na(cov1))) stop("NAs detected in cov1")
+        self$state$cov1_formula <- formula
       } else {
         cov1 <- NULL
+        self$state$cov1_formula <- NULL
       }
 
       if (!is.null(private$cov2_info)) {
@@ -171,91 +176,118 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
             stop(sprintf("cov2nms element '%s' not found in task features", nm))
           }
         }
-        cov2_list <- lapply(cov2nms, function(nm) {
-          model.matrix(as.formula(paste("~", nm)), data = full_data)[, -1, drop = FALSE]
+        cov2_formulas <- lapply(cov2nms, function(nm) as.formula(paste("~", nm)))
+        cov2_list <- lapply(cov2_formulas, function(f) {
+          model.matrix(f, data = full_data)[, -1, drop = FALSE]
         })
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
+        if (any(is.na(cov2))) stop("NAs detected in cov2")
         uft <- unique(as.numeric(full_data[[time_col]]))
-
         tf_out <- tf(uft)
         if (!is.matrix(tf_out)) stop("tf must return a matrix")
         if (nrow(tf_out) != length(uft)) stop("tf output must have rows equal to unique failure times")
         if (ncol(tf_out) != ncol(as.matrix(cov2))) {
-          stop(sprintf("tf must return a matrix with %d columns (matching cov2 columns)", ncol(as.matrix(cov2))))
+          stop(sprintf("tf must return a matrix with %d columns", ncol(as.matrix(cov2))))
         }
         tf_final <- tf
+        self$state$cov2_formulas <- cov2_formulas
       } else {
         cov2 <- NULL
         tf_final <- NULL
+        self$state$cov2_formulas <- NULL
       }
-      if (!is.null(cov2) && any(is.na(cov2))) stop("NAs detected in cov2")
 
       ftime <- as.numeric(full_data[[time_col]])
       all_event_times <- sort(unique(ftime))
 
-      models <- list()
-      event_times <- list()
-      coefficients <- list()
-      event_levels <- as.character(task$cmp_events)
-
-      for (target_event in event_levels) {
-        fstatus <- as.numeric(full_data[[event_col]])
-        model <- tryCatch({
+      # Parallelized model fitting
+      fit_model <- function(target_event, ftime, fstatus, cov1, cov2, tf_final, pv) {
+        tryCatch({
           if (is.null(cov2)) {
-            cmprsk::crr(ftime, fstatus, cov1, failcode = as.integer(target_event), cencode = 0L)
+            cmprsk::crr(ftime, fstatus, cov1, failcode = as.integer(target_event),
+                        cencode = 0L, maxiter = pv$maxiter, ctol = pv$ctol)
           } else {
-            cmprsk::crr(ftime, fstatus, cov1, cov2, tf_final, failcode = as.integer(target_event), cencode = 0L)
+            cmprsk::crr(ftime, fstatus, cov1, cov2, tf_final, failcode = as.integer(target_event),
+                        cencode = 0L, maxiter = pv$maxiter, ctol = pv$ctol)
           }
+        }, warning = function(w) {
+          warning(sprintf("Convergence warning for event %s: %s", target_event, w$message))
+          return(NULL)
         }, error = function(e) {
           stop(sprintf("Failed to train model for event %s: %s", target_event, e$message))
         })
-        event_times[[target_event]] <- model$uftime
-        coefficients[[target_event]] <- model$coef
-        models[[target_event]] <- model
       }
 
+      event_levels <- as.character(task$cmp_events)
+      fstatus <- as.numeric(full_data[[event_col]])
+      if (pv$parallel) {
+        requireNamespace("future.apply", quietly = TRUE)
+        models <- future.apply::future_lapply(event_levels, fit_model,
+                                              ftime = ftime,
+                                              fstatus = fstatus,
+                                              cov1 = cov1,
+                                              cov2 = cov2,
+                                              tf_final = tf_final,
+                                              pv = pv,
+                                              future.seed = TRUE)
+      } else {
+        models <- lapply(event_levels, fit_model,
+                         ftime = ftime,
+                         fstatus = fstatus,
+                         cov1 = cov1,
+                         cov2 = cov2,
+                         tf_final = tf_final,
+                         pv = pv)
+      }
+      names(models) <- event_levels
+
+      # Store convergence status and event times
+      convergence <- list()
+      event_times <- list()
+      for (event in event_levels) {
+        convergence[[event]] <- if (is.null(models[[event]])) FALSE else TRUE
+        event_times[[event]] <- models[[event]]$uftime
+      }
+
+      self$state$model <- models
+      self$state$convergence <- convergence
       self$state$event_times <- event_times
       self$state$cov2 <- cov2
       self$state$tf <- tf_final
       self$state$feature_names <- features
       self$state$cov2_names <- if (!is.null(cov2)) colnames(as.matrix(cov2)) else NULL
       self$state$all_event_times <- all_event_times
-      
+
       models
     },
+
     .predict = function(task, row_ids = task$row_ids) {
       newdata <- task$data(rows = row_ids)
       event_levels <- as.character(task$cmp_events)
       cif_list <- vector("list", length(event_levels))
       names(cif_list) <- event_levels
 
-      if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
-        cov1_features <- task$feature_names
-      } else {
-        cov1_features <- setdiff(task$feature_names, private$cov2_info$cov2only)
-      }
-      if (length(cov1_features) > 0) {
-        formula <- as.formula(paste("~", paste(cov1_features, collapse = " + ")))
-        cov1 <- model.matrix(formula, data = newdata)[, -1, drop = FALSE]
+      # Reuse cached covariate formulas
+      if (!is.null(self$state$cov1_formula)) {
+        cov1 <- model.matrix(self$state$cov1_formula, data = newdata)[, -1, drop = FALSE]
         if (any(is.na(cov1))) stop("NAs detected in cov1")
       } else {
         cov1 <- NULL
       }
 
-      if (!is.null(private$cov2_info)) {
-        cov2nms <- private$cov2_info$cov2nms
-        cov2_list <- lapply(cov2nms, function(nm) {
-          model.matrix(as.formula(paste("~", nm)), data = newdata)[, -1, drop = FALSE]
+      if (!is.null(self$state$cov2_formulas)) {
+        cov2_list <- lapply(self$state$cov2_formulas, function(f) {
+          model.matrix(f, data = newdata)[, -1, drop = FALSE]
         })
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
+        if (any(is.na(cov2))) stop("NAs detected in cov2")
         tf <- self$state$tf
       } else {
         cov2 <- NULL
         tf <- NULL
       }
-      if (!is.null(cov2) && any(is.na(cov2))) stop("NAs detected in cov2")
 
       all_times <- self$state$all_event_times
       all_times_char <- as.character(all_times)
@@ -293,3 +325,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     }
   )
 )
+
+#' @importFrom mlr3misc register_learner
+register_learner("cmprsk.crr", LearnerCompRisksFineGrayCRR)
