@@ -58,7 +58,7 @@
 #'   ),
 #'   parallel = FALSE,
 #'   maxiter = 100,
-#'   ctol = 1e-6
+#'   gtol = 1e-6
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
@@ -96,10 +96,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
 
       ps <- paradox::ps(
         maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train"),
-        ctol = paradox::p_dbl(default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"),
+        gtol = paradox::p_dbl(default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"),
         parallel = paradox::p_lgl(default = FALSE, tags = "train")
       )
-      ps$values <- list(maxiter = 100L, ctol = 1e-6, parallel = FALSE)
+      ps$values <- list(maxiter = 100L, gtol = 1e-6, parallel = FALSE)
 
       super$initialize(
         id = "cmprsk.crr",
@@ -208,10 +208,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         tryCatch({
           if (is.null(cov2)) {
             cmprsk::crr(ftime, fstatus, cov1, failcode = as.integer(target_event),
-                        cencode = 0L, maxiter = pv$maxiter, ctol = pv$ctol)
+                        cencode = 0L, maxiter = pv$maxiter, gtol = pv$gtol)
           } else {
             cmprsk::crr(ftime, fstatus, cov1, cov2, tf_final, failcode = as.integer(target_event),
-                        cencode = 0L, maxiter = pv$maxiter, ctol = pv$ctol)
+                        cencode = 0L, maxiter = pv$maxiter, gtol = pv$gtol)
           }
         }, warning = function(w) {
           warning(sprintf("Convergence warning for event %s: %s", target_event, w$message))
