@@ -113,7 +113,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
         packages = c("mlr3proba", "cmprsk", "paradox", "future.apply"),
         properties = c("importance", "missings"),
         label = "Fine-Gray Competing Risks Regression",
-        man = "mlr3extralearners::mlr_learners_cmprsk.crr"
+        man = "LearnerCompRisksFineGrayCRR::mlr_learners_cmprsk.crr"
       )
     },
 
@@ -150,7 +150,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     cov2_info = NULL,
 
     .train = function(task, row_ids = task$row_ids) {
-      checkmate::assert_task(task, .var.name = "task")
+      mlr3misc::assert_task(task, .var.name = "task")
       checkmate::assert_subset(row_ids, task$row_ids, .var.name = "row_ids")
       pv <- self$param_set$get_values(tags = "train")
       full_data <- task$data(rows = row_ids)
@@ -262,7 +262,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     },
 
     .predict = function(task, row_ids = task$row_ids) {
-      checkmate::assert_task(task, .var.name = "task")
+      mlr3misc::assert_task(task, .var.name = "task")
       checkmate::assert_subset(row_ids, task$row_ids, .var.name = "row_ids")
       newdata <- task$data(rows = row_ids)
       event_levels <- as.character(task$cmp_events)
