@@ -325,6 +325,3 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     }
   )
 )
-
-#' @importFrom mlr3misc register_learner
-mlr3misc::register_learner("cmprsk.crr", LearnerCompRisksFineGrayCRR, pkg = "mlr3extralearners")

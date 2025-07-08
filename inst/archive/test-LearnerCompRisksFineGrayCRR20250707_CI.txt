@@ -1,15 +1,24 @@
 library(testthat)
 library(mlr3proba)
 
+# Helper function to check if a package is installed
+skip_if_not_installed <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    skip(paste("Package", pkg, "not installed"))
+  }
+}
+
 test_that("LearnerCompRisksFineGrayCRR works correctly", {
-  skip_if_missing_installed("mlr3proba")
-  skip_if_missing("cmprsk")
+  skip_if_not_installed("mlr3proba")
+  skip_if_not_installed("cmprsk")
 
   # Initialize task and partition
   task <- tsk("pbc")
   task$set_col_roles(cols = "status", add_to = "target")
   task$select(c("age", "sex", "bili"))
   set.seed(123)
+  part <- partition(task, ratio = 0.7)
+
   # Test 1: Class and ID checks
   learner <- lrn("cmprsk.crr")
   expect_class(learner, "LearnerCompRisks")
@@ -19,8 +28,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_subset(c("importance", "missings"), learner$properties)
 
   # Test 2: No cov2_info
-  part <- partition(task, ratio = 0.7)
-  expect_true({learner$train(task, part$train); TRUE})
+  expect_silent(learner$train(task, part$train))
   pred <- learner$predict(task, part$test)
   expect_class(pred, "PredictionCompRisk")
   expect_equal(names(pred$cif), as.character(task$cmp_events))
@@ -32,7 +40,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
       tf = function(uft) cbind(log(uft), log(uft + 1))
     )
   )
-  expect_true({learner_numeric$train(task, part$train); TRUE})
+  expect_silent(learner_numeric$train(task, part$train))
   pred_numeric <- learner_numeric$predict(task, part$test)
   expect_class(pred_numeric, "PredictionCompRisk")
   expect_equal(names(pred_numeric$cif), as.character(task$cmp_events))
@@ -44,7 +52,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
       tf = function(uft) cbind(log(uft), log(uft + 1))
     )
   )
-  expect_true({learner_mixed$train(task, part$train); TRUE})
+  expect_silent(learner_mixed$train(task, part$train))
   pred_mixed <- learner_mixed$predict(task, part$test)
   expect_class(pred_mixed, "PredictionCompRisk")
   expect_equal(names(pred_mixed$cif), as.character(task$cmp_events))
@@ -56,7 +64,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
       tf = function(uft) cbind(log(uft), uft)
     )
   )
-  expect_true({learner_repeats$train(task, part$train); TRUE})
+  expect_silent(learner_repeats$train(task, part$train))
   pred_repeats <- learner_repeats$predict(task, part$test)
   expect_class(pred_repeats, "PredictionCompRisk")
   expect_equal(names(pred_repeats$cif), as.character(task$cmp_events))
@@ -69,7 +77,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
       cov2only = c("bili")
     )
   )
-  expect_true({learner_cov2only$train(task, part$train); TRUE})
+  expect_silent(learner_cov2only$train(task, part$train))
   pred_cov2only <- learner_cov2only$predict(task, part$test)
   expect_class(pred_cov2only, "PredictionCompRisk")
   expect_list(learner_cov2only$state$model, len = length(task$cmp_events))
@@ -94,7 +102,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   task_single <- task$clone()
   task_single$select(c("age"))
   learner_single <- lrn("cmprsk.crr")
-  expect_true({learner_single$train(task_single, part$train); TRUE})
+  expect_silent(learner_single$train(task_single, part$train))
   pred_single <- learner_single$predict(task_single, part$test)
   expect_class(pred_single, "PredictionCompRisk")
 
@@ -102,7 +110,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   task_nofeat <- task$clone()
   task_nofeat$select(character(0))
   learner_nofeat <- lrn("cmprsk.crr")
-  expect_true({learner_nofeat$train(task_nofeat, part$train); TRUE})
+  expect_silent(learner_nofeat$train(task_nofeat, part$train))
   pred_nofeat <- learner_nofeat$predict(task_nofeat, part$test)
   expect_class(pred_nofeat, "PredictionCompRisk")
 
@@ -134,14 +142,14 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_equal(learner_params$param_set$values$maxiter, 50)
   expect_equal(learner_params$param_set$values$gtol, 1e-7)
   expect_false(learner_params$param_set$values$parallel)
-  expect_true({learner_params$train(task, part$train); TRUE})
+  expect_silent(learner_params$train(task, part$train))
   pred_params <- learner_params$predict(task, part$test)
   expect_class(pred_params, "PredictionCompRisk")
 
   # Test 15: Parallel execution (if future.apply is available)
-  skip_if_missing_installed("future.apply")
+  skip_if_not_installed("future.apply")
   learner_parallel <- lrn("cmprsk.crr", parallel = TRUE)
-  expect_true({learner_parallel$train(task, part$train); TRUE})
+  expect_silent(learner_parallel$train(task, part$train))
   pred_parallel <- learner_parallel$predict(task, part$test)
   expect_class(pred_parallel, "PredictionCompRisk")
 })
