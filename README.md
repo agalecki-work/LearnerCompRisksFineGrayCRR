@@ -1,6 +1,6 @@
 # LearnerCompRisksFineGrayCRR
 
-A Fine-Gray Competing Risks Regression learner for `mlr3proba`, built on `cmprsk::crr()`. This package allows modeling of cumulative incidence functions (CIFs) for competing risks, supporting both fixed and time-varying covariates.
+An `mlr3` learner for Fine-Gray competing risks regression using `cmprsk::crr()`.
 
 ## Installation
 
