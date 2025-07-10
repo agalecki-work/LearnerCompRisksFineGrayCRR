@@ -1,59 +1,83 @@
+# Standalone script to demonstrate competing risks analysis with the cmprsk.crr learner
+# in the LearnerCompRisksFineGrayCRR package.
+# Purpose: Perform a Fine-Gray competing risks regression on the pbc dataset, modeling
+# cumulative incidence functions (CIFs) with fixed and time-varying covariates.
+# Dataset: pbc (primary biliary cirrhosis) with 'time' (days), 'status' (0=censored,
+# 1=event 1, 2=event 2), and features: age, bili, sex.
+# Note: The tf function in cov2_info returns a matrix to match the number of covariates
+# in cov2nms (age, sex), ensuring compatibility with cmprsk::crr requirements.
+
 # Load required libraries
 library(mlr3)
 library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)
 
-library(testthat)
-
-# Define the task
+# Step 1: Load and configure the task
+# Use the pbc dataset with default event configuration (status as event column)
+# Select features: age, bili (bilirubin), sex
+cat("Configuring the pbc task...\n")
 task <- tsk("pbc")
 task$select(c("age", "bili", "sex"))
+cat("Features:", paste(task$feature_names, collapse = ", "), "\n")
+cat("Targets: time =", task$target_names[1], ", event =", task$target_names[2], "\n")
+cat("Observations:", task$nrow, "\n")
 
-# Test suite for cmprsk.crr learner
-test_that("cmprsk.crr works with pbc task", {
-  
-  # 1. Learner Initialization
-  learner <- lrn("cmprsk.crr")
-  expect_s3_class(learner, "LearnerCompRisks")
-  expect_true("cif" %in% learner$predict_types, info = "Should support crank predict type")
-  expect_true(all(c("logical", "integer", "numeric", "factor") %in% learner$feature_types), 
-              info = "Should support integer, double, and factor features")
-  
-  # 2. Hyperparameter Handling
-  learner$param_set$values$maxiter <- 101 # Event of interest (e.g., death)
-  expect_equal(learner$param_set$values$maxiter, 101, info = "maxiter should be set to 101")
- 
-  expect_error(learner$param_set$values$maxiter <- "invalid" , info = "Should error on invalid maxiter type")
-  
-  # 3. Training
-  expect_silent(learner$train(task))
-  expect_true(!is.null(learner$model), info = "Model should be created")
-  expect_type(learner$model, "list")
-  expect_equal(sort(names(learner$model[[1]]$coef)), sort(c("age", "bili", "sexf")), 
-               info = "Model coefficients should match task features")
-  
-  # 4. Prediction
-  pred <- learner$predict(task)
-  expect_s3_class(pred, "PredictionCompRisks")
-  expect_equal(nrow(pred$cif[[1]]), 276, info = "Prediction nrow in cif matrix should match task rows (276)")
-  # CIF matrix for competing event 2 (first 5 test observations and 10 time points)
-  expect_equal(dim(pred$cif[[2]][1:5, 1:10]), c(5, 10), info = "CIF matrix should have 5 rows and 10 columns") 
-  
-  # List of cif vectors for the second test observation
-  dt = as.data.table(pred)
-  expect_type(dt$CIF[[2]], "list")
-  expect_equal(length(dt$CIF[[2]][[1]]), 123, info = "cif vector should have length of 123")
-  
-  # 5. Missing data (introduce NA in age)
-  dt = task$data()
-  dt[1, age := NA]
-  task_na <- TaskCompRisks$new(id = paste0(task$id, "_na"), backend = dt, time = "time", event = "status") 
-  expect_error(learner$train(task_na), "missing values", 
-               info = "Should error or handle NA values gracefully")
-  
-  # 6. Resampling
-  resampling <- rsmp("cv", folds = 3)
-  rr <- resample(task, learner, resampling)
-  expect_type(rr, "environment")
-})
+# Step 2: Initialize the cmprsk.crr learner
+# Configure with time-varying covariates (age, sex with log(time) and log(time+1) effects)
+# sex excluded from fixed effects (cov2only); set optimization parameters
+cat("Initializing the cmprsk.crr learner...\n")
+learner <- lrn("cmprsk.crr",
+  cov2_info = list(
+    cov2nms = c("age", "sex"),          # Time-varying covariates
+    tf = function(uft) cbind(log(uft), log(uft + 1)),  # Return matrix with 2 columns
+    cov2only = "sex"                    # Exclude sex from fixed effects
+  ),
+  maxiter = 100,                        # Max iterations for cmprsk::crr
+  gtol = 1e-6,                          # Convergence tolerance
+  parallel = FALSE                      # No parallel processing
+)
+cat("Learner ID:", learner$id, "\n")
+cat("Predict type:", learner$predict_types, "\n")
 
+# Step 3: Train the model
+# Fit the Fine-Gray model to estimate CIFs for each competing event
+cat("Training the model...\n")
+learner$train(task)
+cat("Model trained. Events:", paste(names(learner$model), collapse = ", "), "\n")
+cat("Coefficients (event 1):", paste(names(learner$model[[1]]$coef), collapse = ", "), "\n")
+
+# Step 4: Predict CIFs
+# Generate CIFs for each observation and event at unique event times
+cat("Predicting CIFs...\n")
+pred <- learner$predict(task)
+cat("Prediction class:", class(pred)[1], "\n")
+cat("CIF rows (event 1):", nrow(pred$cif[[1]]), "\n")
+cat("Time points:", ncol(pred$cif[[1]]), "\n")
+cat("Sample CIFs (event 1, first 5 obs, first 5 times):\n")
+print(pred$cif[[1]][1:5, 1:5])
+
+# Step 5: Check convergence
+# Verify convergence status for each event model
+cat("Convergence status:\n")
+print(learner$convergence())
+
+# Step 6: Calculate variable importance
+# Compute coefficient-based importance for each feature and event
+cat("Variable importance:\n")
+print(learner$importance())
+
+# Step 7: Compare with direct cmprsk::crr
+# Run cmprsk::crr directly for validation
+cat("Running cmprsk::crr for comparison...\n")
+library(cmprsk)
+data <- task$data()
+ftime <- data$time
+fstatus <- as.numeric(data$status)
+cov1 <- model.matrix(~ age + bili, data = data)[, -1]
+cov2 <- model.matrix(~ age + sex, data = data)[, -1]
+tf <- function(uft) cbind(log(uft), log(uft + 1))  # Match learner’s tf
+model <- cmprsk::crr(ftime, fstatus, cov1, cov2, tf, failcode = 1, cencode = 0)
+cat("cmprsk::crr summary (event 1):\n")
+print(summary(model))
+
+cat("Analysis completed.\n")

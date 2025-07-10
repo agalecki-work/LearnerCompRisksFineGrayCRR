@@ -22,7 +22,7 @@ crr_learner$train(task, part$train)
 cat("\n -- FG model fit \n")
 print(crr_learner$model)
 
-cat("\n -- predicted vlues \n")
+cat("\n -- predicted values \n")
 pred = crr_learner$train(task, part$train)$predict(task, part$test)
 print(pred)
 cat("\n -- CIF list structure \n") 
