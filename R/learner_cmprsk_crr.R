@@ -12,32 +12,6 @@
 #' @description
 #' The learner uses the \code{\link[cmprsk:crr]{cmprsk::crr}} function from the \code{cmprsk} package to fit a Fine-Gray competing risks regression model. This model estimates cumulative incidence functions (CIFs) for competing risks scenarios with multiple mutually exclusive events, supporting both fixed and time-varying covariates. The \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}} function is used to generate predictions, providing CIFs for specified event types across unique event times from the training data.
 #'
-#' @param cov2_info `list()` \cr
-#' Configuration for time-varying covariates in the Fine-Gray model. If `NULL` (default), all covariates in the task are treated as fixed and included in the `cov1` matrix passed to \code{\link[cmprsk:crr]{cmprsk::crr}}. When specified, `cov2_info` identifies covariates with time-varying effects (included in the `cov2` matrix) and defines how these effects vary over time. This enables modeling of covariate effects that change with time, such as a covariate multiplied by a function of time (e.g., `log(time)`). The list must contain:
-#' \describe{
-#'   \item{cov2nms}{`character()` \cr
-#'     Names of covariates from the task's feature set to treat as time-varying. These covariates contribute to the `cov2` matrix in \code{\link[cmprsk:crr]{cmprsk::crr}}. Must be a non-empty character vector and a subset of the task's feature names.}
-#'   \item{tf}{`function(uft)` \cr
-#'     A function specifying the time-varying effect, taking a numeric vector `uft` (unique failure times from the training data) and returning a matrix with `nrow = length(uft)` and `ncol` equal to the number of columns in the `cov2` matrix (derived from `cov2nms`). For example, `function(uft) log(uft)` applies a logarithmic time transformation, or `function(uft) cbind(log(uft), uft^2)` applies multiple transformations.}
-#'   \item{cov2only}{`character()` or `NULL` \cr
-#'     Optional subset of `cov2nms` specifying covariates to be used only in `cov2` (time-varying effects) and excluded from `cov1` (fixed effects). If `NULL` (default), all task features contribute to `cov1` unless listed in `cov2only`. Must be a subset of `cov2nms` or `NULL`.}
-#' }
-#' Example: To model the `age` covariate with a time-varying effect proportional to `log(time)` and exclude `sex` from fixed effects, use:
-#' \preformatted{
-#' cov2_info = list(
-#'   cov2nms = c("age", "sex"),
-#'   tf = function(uft) log(uft),
-#'   cov2only = "sex"
-#' )
-#' }
-#' This configuration includes `age` in both `cov1` (fixed effects) and `cov2` (time-varying effects), while `sex` is included only in `cov2`.
-#' @param maxiter `integer(1)` \cr
-#' Maximum number of iterations for the \code{\link[cmprsk:crr]{cmprsk::crr}} optimization algorithm. Default is 100, must be between 1 and 1000.
-#' @param gtol `numeric(1)` \cr
-#' Convergence tolerance for the gradient in \code{\link[cmprsk:crr]{cmprsk::crr}}. Default is 1e-6, must be between 1e-9 and 1e-3.
-#' @param parallel `logical(1)` \cr
-#' Whether to use parallel processing for fitting models for multiple events using \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}. Default is \code{FALSE}. Requires the \code{future.apply} package.
-#'
 #' @section Methods:
 #' \describe{
 #'   \item{`convergence()`}{Returns a named list indicating convergence status for each event model (`TRUE`/`FALSE`).}
@@ -78,16 +52,30 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR",
     #' Creates a new instance of this [R6][R6::R6Class] class.
     #'
     #' @param cov2_info `list()` \cr
-    #' Configuration for time-varying covariates. See class description for details.
+    #' Configuration for time-varying covariates in the Fine-Gray model. If `NULL` (default), all covariates in the task are treated as fixed and included in the `cov1` matrix passed to \code{\link[cmprsk:crr]{cmprsk::crr}}. When specified, `cov2_info` identifies covariates with time-varying effects (included in the `cov2` matrix) and defines how these effects vary over time. This enables modeling of covariate effects that change with time, such as a covariate multiplied by a function of time (e.g., `log(time)`). The list must contain:
+    #' \describe{
+    #'   \item{cov2nms}{`character()` \cr
+    #'     Names of covariates from the task's feature set to treat as time-varying. These covariates contribute to the `cov2` matrix in \code{\link[cmprsk:crr]{cmprsk::crr}}. Must be a non-empty character vector and a subset of the task's feature names.}
+    #'   \item{tf}{`function(uft)` \cr
+    #'     A function specifying the time-varying effect, taking a numeric vector `uft` (unique failure times from the training data) and returning a matrix with `nrow = length(uft)` and `ncol` equal to the number of columns in the `cov2` matrix (derived from `cov2nms`). For example, `function(uft) log(uft)` applies a logarithmic time transformation, or `function(uft) cbind(log(uft), uft^2)` applies multiple transformations.}
+    #'   \item{cov2only}{`character()` or `NULL` \cr
+    #'     Optional subset of `cov2nms` specifying covariates to be used only in `cov2` (time-varying effects) and excluded from `cov1` (fixed effects). If `NULL` (default), all task features contribute to `cov1` unless listed in `cov2only`. Must be a subset of `cov2nms` or `NULL`.}
+    #' }
+    #' Example: To model the `age` covariate with a time-varying effect proportional to `log(time)` and exclude `sex` from fixed effects, use:
+    #' \preformatted{
+    #' cov2_info = list(
+    #'   cov2nms = c("age", "sex"),
+    #'   tf = function(uft) log(uft),
+    #'   cov2only = "sex"
+    #' )
+    #' }
+    #' This configuration includes `age` in both `cov1` (fixed effects) and `cov2` (time-varying effects), while `sex` is included only in `cov2`.
     #' @param maxiter `integer(1)` \cr
-    #' Maximum number of iterations for the \code{\link[cmprsk:crr]{cmprsk::crr}} optimization algorithm.
-    #' Default is 100, must be between 1 and 1000.
+    #' Maximum number of iterations for the \code{\link[cmprsk:crr]{cmprsk::crr}} optimization algorithm. Default is 100, must be between 1 and 1000.
     #' @param gtol `numeric(1)` \cr
-    #' Convergence tolerance for the gradient in \code{\link[cmprsk:crr]{cmprsk::crr}}. Default is 1e-6,
-    #' must be between 1e-9 and 1e-3.
+    #' Convergence tolerance for the gradient in \code{\link[cmprsk:crr]{cmprsk::crr}}. Default is 1e-6, must be between 1e-9 and 1e-3.
     #' @param parallel `logical(1)` \cr
-    #' Whether to use parallel processing for fitting models for multiple events using
-    #' \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}. Default is \code{FALSE}. Requires the \code{future.apply} package.
+    #' Whether to use parallel processing for fitting models for multiple events using \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}. Default is \code{FALSE}. Requires the \code{future.apply} package.
     initialize = function(cov2_info = NULL, maxiter = 100L, gtol = 1e-6, parallel = FALSE) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
