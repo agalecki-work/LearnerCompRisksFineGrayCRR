@@ -1,4 +1,4 @@
-# Example usage of LearnerCompRisksFineGrayCRR with various cov2_info configurations
+# Example usage of LearnerCompRisksFineGrayCRR with cov2_info configs
 
 library(mlr3)
 library(mlr3proba)
@@ -15,14 +15,14 @@ print(task)
 # 1. No cov2_info: All predictors treated as fixed
 learner_no_cov2 <- lrn("cmprsk.crr")
 learner_no_cov2$train(task)
-cat("\n -- FG Model 1:  All predictors treated as fixed \n")
+cat("\n -- FG Model 1: All predictors fixed \n")
 print(learner_no_cov2$model)
 
 pred_no_cov2 <- learner_no_cov2$predict(task)
 cat("\n Predicted values \n")
 print(pred_no_cov2)
 
-# 2. Numeric predictors with a two-column transformation function
+# 2. Numeric predictors with a two-column tf function
 learner_numeric <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "bili"),
@@ -30,11 +30,10 @@ learner_numeric <- lrn("cmprsk.crr",
   )
 )
 learner_numeric$train(task)
-cat("\n -- FG Model 2: Numeric predictors with a two-column transformation function \n")
+cat("\n -- FG Model 2: Numeric predictors with two-column tf \n")
 print(learner_numeric$model)
 
-
-# 3. Mixed numeric and factor variables with a two-column transformation
+# 3. Mixed numeric and factor vars with two-column tf
 learner_mixed <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),
@@ -42,9 +41,8 @@ learner_mixed <- lrn("cmprsk.crr",
   )
 )
 learner_mixed$train(task)
-cat("\n -- FG Model 3:  Mixed numeric and factor variables with a two-column transformation \n")
+cat("\n -- FG Model 3: Mixed numeric and factor vars \n")
 print(learner_mixed$model)
-
 
 # 4. Repeated covariates in cov2nms
 learner_repeats <- lrn("cmprsk.crr",
@@ -54,7 +52,7 @@ learner_repeats <- lrn("cmprsk.crr",
   )
 )
 learner_repeats$train(task)
-cat("\n -- FG Model 4:  Repeated covariates in cov2nms \n")
+cat("\n -- FG Model 4: Repeated covariates in cov2nms \n")
 print(learner_repeats$model)
 
 # 5. cov2only: Bili as time-varying only
@@ -67,5 +65,5 @@ learner_cov2only <- lrn("cmprsk.crr",
 )
 learner_cov2only$train(task)
 learner_cov2only$predict(task)
-cat("\n -- FG Model 5:  cov2only: Bili as time-varying only \n")
+cat("\n -- FG Model 5: Bili as time-varying only \n")
 print(learner_cov2only$model)

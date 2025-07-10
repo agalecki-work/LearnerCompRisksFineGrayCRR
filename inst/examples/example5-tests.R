@@ -1,10 +1,13 @@
-# Standalone script to demonstrate competing risks analysis with the cmprsk.crr learner
-# in the LearnerCompRisksFineGrayCRR package.
-# Purpose: Perform a Fine-Gray competing risks regression on the pbc dataset, modeling
-# cumulative incidence functions (CIFs) with fixed and time-varying covariates.
-# Dataset: pbc (primary biliary cirrhosis) with 'time' (days), 'status' (0=censored,
-# 1=event 1, 2=event 2), and features: age, bili, sex.
-# Note: The tf function in cov2_info returns a matrix to match the number of covariates
+# Standalone script to demonstrate competing risks analysis
+# with the cmprsk.crr learner in the LearnerCompRisksFineGrayCRR package.
+# Purpose: Perform a Fine-Gray competing risks regression on the pbc dataset,
+# modeling cumulative incidence functions (CIFs)
+#   with fixed and time-varying covariates.
+# Dataset: pbc (primary biliary cirrhosis)
+#   with 'time' (days), 'status' (0=censored, 1=event 1, 2=event 2),
+# and features: age, bili, sex.
+# Note: The tf function in cov2_info returns a matrix
+#  to match the number of covariates
 # in cov2nms (age, sex), ensuring compatibility with cmprsk::crr requirements.
 
 # Load required libraries
@@ -19,17 +22,17 @@ cat("Configuring the pbc task...\n")
 task <- tsk("pbc")
 task$select(c("age", "bili", "sex"))
 cat("Features:", paste(task$feature_names, collapse = ", "), "\n")
-cat("Targets: time =", task$target_names[1], ", event =", task$target_names[2], "\n")
+cat("Targets: time =", task$target_names[1], ", event =",
+    task$target_names[2], "\n")
 cat("Observations:", task$nrow, "\n")
 
 # Step 2: Initialize the cmprsk.crr learner
-# Configure with time-varying covariates (age, sex with log(time) and log(time+1) effects)
-# sex excluded from fixed effects (cov2only); set optimization parameters
+# Time-varying covariates: age, sex with log(time), log(time+1)
 cat("Initializing the cmprsk.crr learner...\n")
 learner <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),          # Time-varying covariates
-    tf = function(uft) cbind(log(uft), log(uft + 1)),  # Return matrix with 2 columns
+    tf = function(uft) cbind(log(uft), log(uft + 1)),  # Mtx with 2 columns
     cov2only = "sex"                    # Exclude sex from fixed effects
   ),
   maxiter = 100,                        # Max iterations for cmprsk::crr
@@ -43,8 +46,9 @@ cat("Predict type:", learner$predict_types, "\n")
 # Fit the Fine-Gray model to estimate CIFs for each competing event
 cat("Training the model...\n")
 learner$train(task)
-cat("Model trained. Events:", paste(names(learner$model), collapse = ", "), "\n")
-cat("Coefficients (event 1):", paste(names(learner$model[[1]]$coef), collapse = ", "), "\n")
+cat("Model trained. Events:", paste(names(learner$model), collapse = ","), "\n")
+cat("Coefficients (event 1):", paste(names(learner$model[[1]]$coef),
+                                     collapse = ","), "\n")
 
 # Step 4: Predict CIFs
 # Generate CIFs for each observation and event at unique event times
@@ -75,7 +79,7 @@ ftime <- data$time
 fstatus <- as.numeric(data$status)
 cov1 <- model.matrix(~ age + bili, data = data)[, -1]
 cov2 <- model.matrix(~ age + sex, data = data)[, -1]
-tf <- function(uft) cbind(log(uft), log(uft + 1))  # Match learner’s tf
+tf <- function(uft) cbind(log(uft), log(uft + 1))  # Match learner's tf
 model <- cmprsk::crr(ftime, fstatus, cov1, cov2, tf, failcode = 1, cencode = 0)
 cat("cmprsk::crr summary (event 1):\n")
 print(summary(model))

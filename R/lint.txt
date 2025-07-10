@@ -1,0 +1,119 @@
+>  lintr::lint_dir("./R")
+learner_cmprsk_crr.R:56:81: style: [line_length_linter] Lines should not be more than 80 characters. This line is 103 characters.
+LearnerCompRisksFineGrayCRR <- R6::R6Class("LearnerCompRisksFineGrayCRR", # nolint: object_name_linter.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:57:2: style: [indentation_linter] Hanging indent should be 43 spaces but is 2 spaces.
+  inherit = mlr3proba::LearnerCompRisks,
+ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:107:25: style: [indentation_linter] Hanging indent should be 26 spaces but is 25 spaces.
+                         gtol = 1e-6, parallel = FALSE) {
+                        ^~
+learner_cmprsk_crr.R:108:6: style: [indentation_linter] Indentation should be 47 spaces but is 6 spaces.
+      if (!is.null(cov2_info)) {
+     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:115:10: style: [indentation_linter] Indentation should be 51 spaces but is 10 spaces.
+          stop("cov2nms must be a non-empty character vector")
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:129:6: style: [indentation_linter] Indentation should be 47 spaces but is 6 spaces.
+      ps <- paradox::ps(
+     ^~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:132:8: style: [indentation_linter] Indentation should be 49 spaces but is 8 spaces.
+        gtol = paradox::p_dbl(default = 1e-6, lower = 1e-9,
+       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:134:8: style: [indentation_linter] Indentation should be 49 spaces but is 8 spaces.
+        parallel = paradox::p_lgl(default = FALSE, tags = "train")
+       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:138:6: style: [indentation_linter] Indentation should be 47 spaces but is 6 spaces.
+      super$initialize(
+     ^~~~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:150:4: style: [indentation_linter] Indentation should be 45 spaces but is 4 spaces.
+    #' @description
+   ^~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:160:4: style: [indentation_linter] Indentation should be 45 spaces but is 4 spaces.
+    #' @description
+   ^~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:183:2: style: [indentation_linter] Hanging indent should be 43 spaces but is 2 spaces.
+  private = list(
+ ^~~~~~~~~~~~~~~~~
+learner_cmprsk_crr.R:183:11: style: [assignment_linter] Use one of <-, <<- for assignment, not =.
+  private = list(
+          ^
+learner_cmprsk_crr.R:184:4: style: [indentation_linter] Hanging indent should be 17 spaces but is 4 spaces.
+    cov2_info = NULL,
+   ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:186:4: style: [indentation_linter] Hanging indent should be 17 spaces but is 4 spaces.
+    .train = function(task, row_ids = task$row_ids) {
+   ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:198:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:216:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      if (!is.null(private$cov2_info)) {
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:253:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      ftime <- as.numeric(full_data[[time_col]])
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:258:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:259:27: style: [indentation_linter] Hanging indent should be 28 spaces but is 27 spaces.
+                           tf_final, pv) {
+                          ^~
+learner_cmprsk_crr.R:260:8: style: [indentation_linter] Indentation should be 21 spaces but is 8 spaces.
+        tryCatch({
+       ^~~~~~~~~~~~
+learner_cmprsk_crr.R:281:10: style: [indentation_linter] Indentation should be 23 spaces but is 10 spaces.
+          NULL
+         ^~~~~~
+learner_cmprsk_crr.R:285:8: style: [indentation_linter] Indentation should be 21 spaces but is 8 spaces.
+        })
+       ^~~~
+learner_cmprsk_crr.R:288:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      if (pv$parallel) {
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:313:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      convergence <- list()
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:324:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      self$state$model <- models
+     ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:337:6: style: [indentation_linter] Indentation should be 19 spaces but is 6 spaces.
+      models
+     ^~~~~~~~
+learner_cmprsk_crr.R:340:4: style: [indentation_linter] Hanging indent should be 17 spaces but is 4 spaces.
+    .predict = function(task, row_ids = task$row_ids) {
+   ^~~~~~~~~~~~~~
+learner_cmprsk_crr.R:340:14: style: [assignment_linter] Use one of <-, <<- for assignment, not =.
+    .predict = function(task, row_ids = task$row_ids) {
+             ^
+learner_cmprsk_crr.R:340:55: style: [brace_linter] Opening curly braces should never go on their own line and should always be followed by a new line.
+    .predict = function(task, row_ids = task$row_ids) {
+                                                      ^
+learner_cmprsk_crr.R:341:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      if (!inherits(task, "Task")) stop("Task must be a valid mlr3 task")
+  ~~~^
+learner_cmprsk_crr.R:348:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      if (!is.null(self$state$cov1_formula)) {
+  ~~~^
+learner_cmprsk_crr.R:363:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      if (!is.null(self$state$cov2_formulas)) {
+  ~~~^
+learner_cmprsk_crr.R:376:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      all_times <- self$state$all_event_times
+  ~~~^
+learner_cmprsk_crr.R:379:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      for (event in event_levels) {
+  ~~~^
+learner_cmprsk_crr.R:418:6: style: [indentation_linter] Indentation should be 2 spaces but is 6 spaces.
+      PredictionCompRisks$new(task = task, cif = c
+  ~~~^
+learner_cmprsk_crr.R:419:5: error: [error] unexpected '}'
+    }
+    ^
+learner_cmprsk_crr.R:420:2: style: [indentation_linter] Indentation should be 0 spaces but is 2 spaces.
+  )
+~^
+learner_cmprsk_crr.R:421:2: style: [trailing_blank_lines_linter] Add a terminal newline.
+)
+ ^
+> 

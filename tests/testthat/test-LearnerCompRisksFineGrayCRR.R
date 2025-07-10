@@ -15,28 +15,29 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
 
   # Initialize task and partition
   task <- tsk("pbc")
-  task$set_col_roles(cols = "status", add_to = "stratum")  # Add status to stratum
-  task$col_roles$feature <- setdiff(task$feature_names, "status")  # Ensure status is not a feature
+  task$set_col_roles(cols = "status", add_to = "stratum")  # Status as stratum
+  task$col_roles$feature <- setdiff(task$feature_names, "status")  # Rm status
   task$select(c("age", "sex", "bili"))
   set.seed(123)
   part <- partition(task, ratio = 0.7)
 
   # Verify task configuration
-  expect_equal(task$target_names, c("time", "status"))  # Confirm time and status are targets
-  expect_equal(task$col_roles$stratum, "status")  # Confirm status is set as stratum
-  expect_true(is.integer(task$data(cols = "status")$status))  # Confirm status is integer
+  expect_equal(task$target_names, c("time", "status"))  # Check targets
+  expect_equal(task$col_roles$stratum, "status")  # Check stratum
+  expect_true(is.integer(task$data(cols = "status")$status))  # Check status
 
   # Test 1: Class and ID checks
   learner <- lrn("cmprsk.crr")
   expect_s3_class(learner, "LearnerCompRisks")
-  expect_true(exists("new", envir = mlr3proba::LearnerCompRisks))  # Check for learner existence
+  expect_true(exists("new", envir = mlr3proba::LearnerCompRisks)) # Lrn exists
   expect_equal(learner$id, "cmprsk.crr")
   expect_equal(learner$predict_types, c("cif"))
   expect_true(all(c("importance", "missings") %in% learner$properties))
 
   # Test 2: No cov2_info
   expect_silent(learner$train(task, part$train))
-  expect_true(exists("PredictionCompRisks", envir = asNamespace("mlr3proba"), inherits = FALSE))  # Debug namespace
+  expect_true(exists("PredictionCompRisks", envir = asNamespace("mlr3proba"),
+                     inherits = FALSE))  # Debug namespace
   pred <- learner$predict(task, part$test)
   expect_s3_class(pred, "PredictionCompRisks")
   expect_equal(names(pred$cif), as.character(task$cmp_events))
@@ -53,7 +54,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   expect_s3_class(pred_numeric, "PredictionCompRisks")
   expect_equal(names(pred_numeric$cif), as.character(task$cmp_events))
 
-  # Test 4: Mixed numeric and factor variables with tf returning a two-column matrix
+  # Test 4: Mixed numeric and factor vars with two-column tf matrix
   learner_mixed <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "sex"),
@@ -94,7 +95,7 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   coef_names <- names(learner_cov2only$state$model[[1]]$coef)
   cov1_names <- coef_names[!grepl("\\*", coef_names)]
   cov2_names <- coef_names[grepl("\\*", coef_names)]
-  expect_false("bili" %in% cov1_names, "bili should not be in cov1 with cov2only")
+  expect_false("bili" %in% cov1_names, "bili not in cov1 with cov2only")
   expect_true(any(grepl("bili", cov2_names)), "bili should be in cov2 effects")
 
   # Test 7: Convergence method
@@ -121,10 +122,8 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
   task_nofeat <- task$clone()
   task_nofeat$select(character(0))
   learner_nofeat <- lrn("cmprsk.crr")
-  expect_error(learner_nofeat$train(task_nofeat, part$train), "system is exactly singular")
-  # Skip prediction tests since training fails
-  # pred_nofeat <- learner_nofeat$predict(task_nofeat, part$test)
-  # expect_s3_class(pred_nofeat, "PredictionCompRisks")
+  expect_error(learner_nofeat$train(task_nofeat, part$train),
+               "system is exactly singular")
 
   # Test 11: Invalid cov2_info (non-existent feature)
   learner_invalid <- lrn("cmprsk.crr",
@@ -142,17 +141,16 @@ test_that("LearnerCompRisksFineGrayCRR works correctly", {
       tf = function(uft) matrix(log(uft), ncol = 1)
     )
   )
-  expect_error(learner_mismatch$train(task, part$train), "tf must return a matrix with")
+  expect_error(learner_mismatch$train(task, part$train),
+               "tf must return a matrix with")
 
   # Test 13: Empty task
   task_empty <- task$clone()
   expect_error(task_empty$filter(integer(0)), "competing event\\(s\\)")
-  # Skip training and prediction tests since task filtering fails
-  # learner$train(task_empty, integer(0))
-  # expect_error(learner$train(task_empty, integer(0)), "empty")
 
   # Test 14: Parameter validation
-  learner_params <- lrn("cmprsk.crr", maxiter = 50, gtol = 1e-7, parallel = FALSE)
+  learner_params <- lrn("cmprsk.crr", maxiter = 50, gtol = 1e-7,
+                        parallel = FALSE)
   expect_equal(learner_params$param_set$values$maxiter, 50)
   expect_equal(learner_params$param_set$values$gtol, 1e-7)
   expect_false(learner_params$param_set$values$parallel)
