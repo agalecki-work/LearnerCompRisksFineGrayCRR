@@ -157,3 +157,6 @@ CRAN-RELEASE
 check/*
 docs
 
+inst/doc
+/doc/
+/Meta/
