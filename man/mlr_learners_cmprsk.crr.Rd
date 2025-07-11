@@ -5,21 +5,31 @@
 \alias{LearnerCompRisksFineGrayCRR}
 \title{Fine-Gray Competing Risks Regression}
 \description{
-The learner uses the \code{\link[cmprsk:crr]{cmprsk::crr}} function from the \code{cmprsk} package to fit a Fine-Gray competing risks regression model. This model estimates cumulative incidence functions (CIFs) for competing risks scenarios with multiple mutually exclusive events, supporting both fixed and time-varying covariates. The \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}} function is used to generate predictions, providing CIFs for specified event types across unique event times from the training data.
+Fits a Fine-Gray competing risks regression model using
+\code{\link[cmprsk:crr]{cmprsk::crr}} from the \code{cmprsk} package.
+It estimates cumulative incidence functions (CIFs) for competing risks
+scenarios with multiple mutually exclusive events, supporting both fixed
+and time-varying covariates. Predictions are generated using
+\code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
+for specified event types across unique event times from training data.
 }
 \section{Methods}{
 
 \describe{
-\item{\code{convergence()}}{Returns a named list indicating convergence status for each event model (\code{TRUE}/\code{FALSE}).}
-\item{\code{importance()}}{Returns a data frame with coefficient-based variable importance for each event, scaled by absolute coefficient sums.}
+\item{\code{convergence()}}{Returns a named list with convergence status
+(\code{TRUE}/\code{FALSE}) for each event model.}
+\item{\code{importance()}}{Returns a data frame with coefficient-based
+variable importance for each event, scaled by absolute coefficient sums.}
 }
 }
 
 \examples{
 library(mlr3)
 library(mlr3proba)
+if (!requireNamespace("cmprsk", quietly = TRUE)) {
+  stop("Package 'cmprsk' must be installed")
+}
 task <- tsk("pbc")
-task$set_col_roles(cols = "status", add_to = "stratum")
 task$select(c("age", "bili", "sex"))
 learner <- lrn("cmprsk.crr",
   cov2_info = list(
@@ -38,8 +48,9 @@ learner$convergence()
 learner$importance()
 }
 \references{
-Fine, J. P., & Gray, R. J. (1999). A Proportional Hazards Model for the Subdistribution
-of a Competing Risk. \emph{Journal of the American Statistical Association}, 94(446), 496--509.
+Fine, J. P., & Gray, R. J. (1999). A Proportional Hazards Model for
+the Subdistribution of a Competing Risk. \emph{Journal of the American
+Statistical Association}, 94(446), 496--509.
 \doi{10.1080/01621459.1999.10474144}
 }
 \section{Super classes}{
@@ -89,33 +100,31 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{cov2_info}}{\code{list()} \cr
-Configuration for time-varying covariates in the Fine-Gray model. If \code{NULL} (default), all covariates in the task are treated as fixed and included in the \code{cov1} matrix passed to \code{\link[cmprsk:crr]{cmprsk::crr}}. When specified, \code{cov2_info} identifies covariates with time-varying effects (included in the \code{cov2} matrix) and defines how these effects vary over time. This enables modeling of covariate effects that change with time, such as a covariate multiplied by a function of time (e.g., \code{log(time)}). The list must contain:
-\describe{
-\item{cov2nms}{\code{character()} \cr
-Names of covariates from the task's feature set to treat as time-varying. These covariates contribute to the \code{cov2} matrix in \code{\link[cmprsk:crr]{cmprsk::crr}}. Must be a non-empty character vector and a subset of the task's feature names.}
-\item{tf}{\verb{function(uft)} \cr
-A function specifying the time-varying effect, taking a numeric vector \code{uft} (unique failure times from the training data) and returning a matrix with \code{nrow = length(uft)} and \code{ncol} equal to the number of columns in the \code{cov2} matrix (derived from \code{cov2nms}). For example, \code{function(uft) log(uft)} applies a logarithmic time transformation, or \code{function(uft) cbind(log(uft), uft^2)} applies multiple transformations.}
-\item{cov2only}{\code{character()} or \code{NULL} \cr
-Optional subset of \code{cov2nms} specifying covariates to be used only in \code{cov2} (time-varying effects) and excluded from \code{cov1} (fixed effects). If \code{NULL} (default), all task features contribute to \code{cov1} unless listed in \code{cov2only}. Must be a subset of \code{cov2nms} or \code{NULL}.}
+Configuration for time-varying covariates. A list with:
+\itemize{
+\item \code{cov2nms}: Character vector of covariate names
+(e.g., "age", "bili").
+\item \code{tf}: Function transforming time values (returns
+a matrix with >= 2 columns).
+\item \code{cov2only}: Optional character vector of covariates
+to exclude from fixed effects.
 }
-Example: To model the \code{age} covariate with a time-varying effect proportional to \code{log(time)} and exclude \code{sex} from fixed effects, use:
-\preformatted{
-cov2_info = list(
-  cov2nms = c("age", "sex"),
-  tf = function(uft) log(uft),
-  cov2only = "sex"
-)
-}
-This configuration includes \code{age} in both \code{cov1} (fixed effects) and \code{cov2} (time-varying effects), while \code{sex} is included only in \code{cov2}.}
+Default is \code{NULL} for fixed covariates only. See vignette
+or examples in \verb{inst/examples/}.}
 
 \item{\code{maxiter}}{\code{integer(1)} \cr
-Maximum number of iterations for the \code{\link[cmprsk:crr]{cmprsk::crr}} optimization algorithm. Default is 100, must be between 1 and 1000.}
+Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
+Default: 100, range: 1 to 1000.}
 
 \item{\code{gtol}}{\code{numeric(1)} \cr
-Convergence tolerance for the gradient in \code{\link[cmprsk:crr]{cmprsk::crr}}. Default is 1e-6, must be between 1e-9 and 1e-3.}
+Convergence tolerance for
+\code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
+range: 1e-9 to 1e-3.}
 
 \item{\code{parallel}}{\code{logical(1)} \cr
-Whether to use parallel processing for fitting models for multiple events using \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}. Default is \code{FALSE}. Requires the \code{future.apply} package.}
+Use parallel processing via
+\code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
+Default: \code{FALSE}. Requires \code{future.apply}.}
 }
 \if{html}{\out{</div>}}
 }

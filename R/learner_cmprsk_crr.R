@@ -1,6 +1,7 @@
 #' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
 #' @import paradox
 #' @importFrom mlr3misc invoke
+#' @import R6
 #'
 #' @title Fine-Gray Competing Risks Regression
 #' @name mlr_learners_cmprsk.crr
@@ -36,6 +37,9 @@
 #' @examples
 #' library(mlr3)
 #' library(mlr3proba)
+#' if (!requireNamespace("cmprsk", quietly = TRUE)) {
+#'   stop("Package 'cmprsk' must be installed")
+#' }
 #' task <- tsk("pbc")
 #' task$select(c("age", "bili", "sex"))
 #' learner <- lrn("cmprsk.crr",
@@ -61,49 +65,28 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
     #' Creates a new instance of this [R6][R6::R6Class] class.
     #'
     #' @param cov2_info `list()` \cr
-    #' Configures time-varying covariates for the Fine-Gray model. If
-    #' \code{NULL} (default), all covariates are treated as fixed and
-    #' included in the \code{cov1} matrix for
-    #' \code{\link[cmprsk:crr]{cmprsk::crr}}. When specified,
-    #' \code{cov2_info} defines covariates with time-varying effects
-    #' (included in \code{cov2}) and their time dependency. The list
-    #' must contain: \cr
-    #' \describe{
-    #'   \item{cov2nms}{`character()` \cr
-    #'     Names of covariates from the task's feature set for
-    #'     time-varying effects in the \code{cov2} matrix. Must be a
-    #'     non-empty character vector and subset of task features.}
-    #'   \item{tf}{`function(uft)` \cr
-    #'     Function defining time-varying effects, taking a numeric
-    #'     vector \code{uft} (unique failure times) and returning a
-    #'     matrix with \code{nrow = length(uft)} and \code{ncol}
-    #'     matching \code{cov2} columns (from \code{cov2nms}).
-    #'     Example: \code{function(uft) cbind(log(uft), uft^2)}.}
-    #'   \item{cov2only}{`character()` or \code{NULL} \cr
-    #'     Subset of \code{cov2nms} for covariates used only in
-    #'     \code{cov2} (time-varying), excluded from \code{cov1}
-    #'     (fixed). If \code{NULL} (default), all task features
-    #'     contribute to \code{cov1} unless in \code{cov2only}.}
-    #' }
-    #' Example: \preformatted{
-    #' cov2_info = list(
-    #'   cov2nms = c("age", "sex"),
-    #'   tf = function(uft) cbind(log(uft), log(uft + 1)),
-    #'   cov2only = "sex"
-    #' )
-    #' }
-    #' Here, \code{age} is in both \code{cov1} and \code{cov2}, while
-    #' \code{sex} is only in \code{cov2}.
+    #'   Configuration for time-varying covariates. A list with:
+    #'   \itemize{
+    #'     \item \code{cov2nms}: Character vector of covariate names
+    #'       (e.g., "age", "bili").
+    #'     \item \code{tf}: Function transforming time values (returns
+    #'       a matrix with >= 2 columns).
+    #'     \item \code{cov2only}: Optional character vector of covariates
+    #'       to exclude from fixed effects.
+    #'   }
+    #'   Default is \code{NULL} for fixed covariates only. See vignette
+    #'   or examples in `inst/examples/`.
     #' @param maxiter `integer(1)` \cr
-    #' Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-    #' Default: 100, range: 1 to 1000.
+    #'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
+    #'   Default: 100, range: 1 to 1000.
     #' @param gtol `numeric(1)` \cr
-    #' Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-    #' Default: 1e-6, range: 1e-9 to 1e-3.
+    #'   Convergence tolerance for
+    #'   \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
+    #'   range: 1e-9 to 1e-3.
     #' @param parallel `logical(1)` \cr
-    #' Use parallel processing via
-    #' \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
-    #' Default: \code{FALSE}. Requires \code{future.apply}.
+    #'   Use parallel processing via
+    #'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
+    #'   Default: \code{FALSE}. Requires \code{future.apply}.
     initialize = function(cov2_info = NULL, maxiter = 100L,
                           gtol = 1e-6, parallel = FALSE) {
       if (!is.null(cov2_info)) {
@@ -125,16 +108,23 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           }
         }
       }
-      private$cov2_info <- cov2_info
-
       ps <- paradox::ps(
-        maxiter = paradox::p_int(default = 100L, lower = 1L,
-                                 upper = 1000L, tags = "train"),
-        gtol = paradox::p_dbl(default = 1e-6, lower = 1e-9,
-                              upper = 1e-3, tags = "train"),
-        parallel = paradox::p_lgl(default = FALSE, tags = "train")
+        maxiter = paradox::p_int(
+          default = 100L, lower = 1L, upper = 1000L, tags = "train"
+        ),
+        gtol = paradox::p_dbl(
+          default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"
+        ),
+        parallel = paradox::p_lgl(default = FALSE, tags = "train"),
+        cov2_info = paradox::p_uty(default = NULL, tags = "train")
       )
-      ps$values <- list(maxiter = maxiter, gtol = gtol, parallel = parallel)
+      ps$values <- list(
+        maxiter = maxiter,
+        gtol = gtol,
+        parallel = parallel,
+        cov2_info = cov2_info
+      )
+      private$cov2_info <- cov2_info
 
       super$initialize(
         id = "cmprsk.crr",
@@ -196,10 +186,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         stop("Time column must be numeric")
       }
 
-      if (is.null(private$cov2_info) || is.null(private$cov2_info$cov2only)) {
+      if (is.null(pv$cov2_info) || is.null(pv$cov2_info$cov2only)) {
         cov1_features <- features
       } else {
-        cov1_features <- setdiff(features, private$cov2_info$cov2only)
+        cov1_features <- setdiff(features, pv$cov2_info$cov2only)
       }
       if (length(cov1_features) > 0) {
         formula <- as.formula(
@@ -214,9 +204,9 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         self$state$cov1_formula <- as.formula("~ 1")
       }
 
-      if (!is.null(private$cov2_info)) {
-        cov2nms <- private$cov2_info$cov2nms
-        tf <- private$cov2_info$tf
+      if (!is.null(pv$cov2_info)) {
+        cov2nms <- pv$cov2_info$cov2nms
+        tf <- pv$cov2_info$tf
         for (nm in cov2nms) {
           if (!nm %in% features) {
             stop(sprintf("cov2nms element '%s' not in task features", nm))
@@ -258,6 +248,9 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
                             tf_final, pv) {
+        if (!requireNamespace("cmprsk", quietly = TRUE)) {
+          stop("Package 'cmprsk' must be installed")
+        }
         tryCatch({
           if (is.null(cov2)) {
             cmprsk::crr(
@@ -383,7 +376,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           stop(sprintf("No model available for event %s", event))
         }
         pred <- tryCatch({
-          pred_raw <- predict(
+          if (!requireNamespace("cmprsk", quietly = TRUE)) {
+            stop("Package 'cmprsk' must be installed")
+          }
+          pred_raw <- cmprsk::predict.crr(
             model,
             cov1 = cov1,
             cov2 = cov2,
