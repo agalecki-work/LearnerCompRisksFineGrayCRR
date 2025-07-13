@@ -3,12 +3,6 @@ library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)  # Explicitly load the package
 source("helper.R")
 
-# Shared setup for task and partition using helper functions
-setup_task <- function() {
-  task <- configure_task(stratum = "status", features = c("age", "sex", "bili"))
-  part <- create_partition(task, ratio = 0.7)
-  list(task = task, part = part)
-}
 
 test_that("Task configuration is correct", {
   skip_if_not_installed("mlr3proba")
