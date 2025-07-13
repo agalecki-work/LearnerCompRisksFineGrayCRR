@@ -1,7 +1,10 @@
 linters: linters_with_defaults(
-  object_name_linter = NULL,
-  line_length_linter = line_length_linter(80),
-  trailing_whitespace_linter = trailing_whitespace_linter(),
-  trailing_blank_lines_linter = trailing_blank_lines_linter(),
-  commented_code_linter = commented_code_linter())
-
+  line_length_linter(80),
+  trailing_whitespace_linter(),
+  assignment_linter(),
+  infix_spaces_linter(),
+  object_name_linter(styles = "snake_case"),
+  paren_body_linter(),
+  commented_code_linter(),
+  whitespace_linter())
+exclusions: list("tests/testthat/helper.R")
