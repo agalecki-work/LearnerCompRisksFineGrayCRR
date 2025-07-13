@@ -1,6 +1,6 @@
 Package: LearnerCompRisksFineGrayCRR
 Title: Fine-Gray Competing Risks Regression Learner for mlr3
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: person("Andrzej", "Galecki", email = "agalecki@umich.edu", role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3058-1312"))
 Description: Implements a Fine-Gray competing risks regression learner using cmprsk::crr
   for the mlr3 framework. Supports fixed and time-varying covariates for modeling
