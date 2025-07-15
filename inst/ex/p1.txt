@@ -1,0 +1,91 @@
+# Clear environment
+rm(list=ls())
+
+# Load libraries
+library(mlr3)
+library(mlr3proba)
+library(data.table)
+library(cmprsk)
+library(future.apply)
+
+# Source the updated learner
+source("R/learner_cmprsk_crr.R")
+
+# Set up parallel backend
+plan(multisession)
+
+# Test 1: No features, initList = NULL
+cat("\n=== Test 1: No features, initList = NULL ===\n")
+task_nofeat <- tsk("pbc")
+task_nofeat$select(character(0))
+learner <- lrn("cmprsk.crr",
+  cov2_info = NULL,
+  maxiter = 100,
+  gtol = 1e-6,
+  parallel = TRUE,
+  initList = NULL
+)
+tryCatch({
+  learner$train(task_nofeat)
+  cat("Result:\n")
+  print(learner$model)
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+
+# Test 2: One feature (age), initList = NULL
+cat("\n=== Test 2: One feature (age), initList = NULL ===\n")
+task_onefeat <- tsk("pbc")
+task_onefeat$select("age")
+learner <- lrn("cmprsk.crr",
+  cov2_info = NULL,
+  maxiter = 100,
+  gtol = 1e-6,
+  parallel = TRUE,
+  initList = NULL
+)
+tryCatch({
+  learner$train(task_onefeat)
+  cat("Result:\n")
+  print(learner$model)
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+
+# Test 3: Multiple features (age, bili, sex), initList = NULL
+cat("\n=== Test 3: Multiple features (age, bili, sex), initList = NULL ===\n")
+task_multifeat <- tsk("pbc")
+task_multifeat$select(c("age", "bili", "sex"))
+learner <- lrn("cmprsk.crr",
+  cov2_info = NULL,
+  maxiter = 100,
+  gtol = 1e-6,
+  parallel = TRUE,
+  initList = NULL
+)
+tryCatch({
+  learner$train(task_multifeat)
+  cat("Result:\n")
+  print(learner$model)
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+
+# Test 4: Repeated cov2nms (age, age), initList = NULL
+cat("\n=== Test 4: Repeated cov2nms (age, age), initList = NULL ===\n")
+task_cov2 <- tsk("pbc")
+task_cov2$select(c("age", "bili", "sex"))
+learner <- lrn("cmprsk.crr",
+  cov2_info = list(cov2nms = c("age", "age"), tf = function(uft) { uft <- pmax(uft, 1e-8); cbind(log(uft), log(uft + 1)) }, cov2only = NULL),
+  maxiter = 100,
+  gtol = 1e-6,
+  parallel = TRUE,
+  initList = NULL
+)
+tryCatch({
+  learner$train(task_cov2)
+  cat("Result:\n")
+  print(learner$model)
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
