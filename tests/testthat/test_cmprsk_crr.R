@@ -250,3 +250,57 @@ test_that("Parallel execution", {
   pred_parallel <- learner_parallel$predict(task, part$test)
   expect_s3_class(pred_parallel, "PredictionCompRisks")
 })
+
+test_that("Training and prediction with initList", {
+  skip_if_not_installed("mlr3proba")
+  skip_if_not_installed("cmprsk")
+  setup <- setup_task()
+  task <- setup$task
+  part <- setup$part
+  # Number of covariates: age, sex, bili (sex is a factor, expands to 1 column after dummy encoding)
+  n_cov <- 3  # age, bili, sex (assuming sex has one dummy variable)
+  initList <- list("1" = rep(0.1, n_cov), "2" = rep(0.1, n_cov))
+  learner_init <- lrn("cmprsk.crr",
+    cov2_info = list(
+      cov2nms = c("age", "bili"),
+      tf = function(uft) cbind(log(uft), log(uft + 1)),
+      cov2only = NULL
+    ),
+    initList = initList
+  )
+  expect_silent(learner_init$train(task, part$train))
+  pred_init <- learner_init$predict(task, part$test)
+  expect_s3_class(pred_init, "PredictionCompRisks")
+  expect_equal(names(pred_init$cif), as.character(task$cmp_events))
+  # Verify that initList is stored correctly
+  expect_equal(learner_init$param_set$values$initList, initList)
+})
+
+test_that("Invalid initList validation", {
+  skip_if_not_installed("mlr3proba")
+  skip_if_not_installed("cmprsk")
+  setup <- setup_task()
+  task <- setup$task
+  part <- setup$part
+  # Incorrect number of values
+  initList_wrong <- list("1" = c(0.1, 0.1), "2" = c(0.1, 0.1))
+  learner_wrong <- lrn("cmprsk.crr", initList = initList_wrong)
+  expect_error(learner_wrong$train(task, part$train),
+               "initList for event 1 must have 3 values")
+  # Non-numeric values
+  initList_non_numeric <- list("1" = c("a", "b", "c"), "2" = c("a", "b", "c"))
+  learner_non_numeric <- lrn("cmprsk.crr", initList = initList_non_numeric)
+  expect_error(learner_non_numeric$train(task, part$train),
+               "initList must contain numeric vectors")
+  # Missing event
+  initList_missing <- list("1" = c(0.1, 0.2, 0.3))
+  learner_missing <- lrn("cmprsk.crr", initList = initList_missing)
+  expect_error(learner_missing$train(task, part$train),
+               "initList must have entries for all event levels")
+  # NA values
+  initList_na <- list("1" = c(0.1, NA, 0.3), "2" = c(0.1, 0.2, 0.3))
+  learner_na <- lrn("cmprsk.crr", initList = initList_na)
+  expect_error(learner_na$train(task, part$train),
+               "initList for event 1 must not contain NAs")
+})
+

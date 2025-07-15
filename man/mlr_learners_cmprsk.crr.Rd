@@ -39,7 +39,8 @@ learner <- lrn("cmprsk.crr",
   ),
   maxiter = 100,
   gtol = 1e-6,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = list("1" = c(0.1, 0.2, 0.3), "2" = c(0.1, 0.2, 0.3))
 )
 learner$train(task)
 pred <- learner$predict(task)
@@ -92,7 +93,8 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
   cov2_info = NULL,
   maxiter = 100L,
   gtol = 1e-06,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -125,6 +127,14 @@ range: 1e-9 to 1e-3.}
 Use parallel processing via
 \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
 Default: \code{FALSE}. Requires \code{future.apply}.}
+
+\item{\code{initList}}{\code{list()} \cr
+List of numeric vectors containing initial regression parameter values
+for each event model, passed to \code{\link[cmprsk:crr]{cmprsk::crr}}.
+Each vector's length must match the number of covariates (fixed and
+time-varying) for the model. Default is \code{NULL}, which uses all zeros
+as per \code{cmprsk::crr} default. If provided, the list must have names
+matching the event levels, and each vector must be numeric with no NAs.}
 }
 \if{html}{\out{</div>}}
 }

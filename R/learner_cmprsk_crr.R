@@ -1,3 +1,4 @@
+# Updated: July 15, 2025, 10:34 AM EDT
 #' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
 #' @import paradox
 #' @importFrom mlr3misc invoke
@@ -33,6 +34,37 @@
 #' Statistical Association}, 94(446), 496--509.
 #' \doi{10.1080/01621459.1999.10474144}
 #'
+#' @param cov2_info `list()` \cr
+#'   Configuration for time-varying covariates. A list with:
+#'   \itemize{
+#'     \item \code{cov2nms}: Character vector of covariate names
+#'       (e.g., "age", "bili").
+#'     \item \code{tf}: Function transforming time values (returns
+#'       a matrix with >= 2 columns).
+#'     \item \code{cov2only}: Optional character vector of covariates
+#'       to exclude from fixed effects.
+#'   }
+#'   Default is \code{NULL} for fixed covariates only. See vignette
+#'   or examples in `inst/examples/`.
+#' @param maxiter `integer(1)` \cr
+#'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
+#'   Default: 100, range: 1 to 1000.
+#' @param gtol `numeric(1)` \cr
+#'   Convergence tolerance for
+#'   \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
+#'   range: 1e-9 to 1e-3.
+#' @param parallel `logical(1)` \cr
+#'   Use parallel processing via
+#'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
+#'   Default: \code{FALSE}. Requires \code{future.apply}.
+#' @param initList `list()` \cr
+#'   List of numeric vectors containing initial regression parameter values
+#'   for each event model, passed to \code{\link[cmprsk:crr]{cmprsk::crr}}.
+#'   Each vector's length must match the number of covariates (fixed and
+#'   time-varying) for the model. Default is \code{NULL}, which uses all zeros
+#'   as per \code{cmprsk::crr} default. If provided, the list must have names
+#'   matching the event levels, and each vector must be numeric with no NAs.
+#'
 #' @export
 #' @examples
 #' library(mlr3)
@@ -50,7 +82,8 @@
 #'   ),
 #'   maxiter = 100,
 #'   gtol = 1e-6,
-#'   parallel = FALSE
+#'   parallel = FALSE,
+#'   initList = list("1" = c(0.1, 0.2, 0.3), "2" = c(0.1, 0.2, 0.3))
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
@@ -61,34 +94,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
   "LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
-    #' @description
-    #' Creates a new instance of this [R6][R6::R6Class] class.
-    #'
-    #' @param cov2_info `list()` \cr
-    #'   Configuration for time-varying covariates. A list with:
-    #'   \itemize{
-    #'     \item \code{cov2nms}: Character vector of covariate names
-    #'       (e.g., "age", "bili").
-    #'     \item \code{tf}: Function transforming time values (returns
-    #'       a matrix with >= 2 columns).
-    #'     \item \code{cov2only}: Optional character vector of covariates
-    #'       to exclude from fixed effects.
-    #'   }
-    #'   Default is \code{NULL} for fixed covariates only. See vignette
-    #'   or examples in `inst/examples/`.
-    #' @param maxiter `integer(1)` \cr
-    #'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-    #'   Default: 100, range: 1 to 1000.
-    #' @param gtol `numeric(1)` \cr
-    #'   Convergence tolerance for
-    #'   \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
-    #'   range: 1e-9 to 1e-3.
-    #' @param parallel `logical(1)` \cr
-    #'   Use parallel processing via
-    #'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
-    #'   Default: \code{FALSE}. Requires \code{future.apply}.
     initialize = function(cov2_info = NULL, maxiter = 100L,
-                          gtol = 1e-6, parallel = FALSE) {
+                          gtol = 1e-6, parallel = FALSE, initList = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
@@ -108,6 +115,16 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           }
         }
       }
+      # Validate initList
+      if (!is.null(initList)) {
+        if (!is.list(initList)) stop("initList must be a list")
+        if (!all(sapply(initList, is.numeric))) {
+          stop("initList must contain numeric vectors")
+        }
+        if (any(sapply(initList, function(x) any(is.na(x))))) {
+          stop("initList vectors must not contain NAs")
+        }
+      }
       ps <- paradox::ps(
         maxiter = paradox::p_int(
           default = 100L, lower = 1L, upper = 1000L, tags = "train"
@@ -116,15 +133,18 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"
         ),
         parallel = paradox::p_lgl(default = FALSE, tags = "train"),
-        cov2_info = paradox::p_uty(default = NULL, tags = "train")
+        cov2_info = paradox::p_uty(default = NULL, tags = "train"),
+        initList = paradox::p_uty(default = NULL, tags = "train")
       )
       ps$values <- list(
         maxiter = maxiter,
         gtol = gtol,
         parallel = parallel,
-        cov2_info = cov2_info
+        cov2_info = cov2_info,
+        initList = initList
       )
       private$cov2_info <- cov2_info
+      private$initList <- initList
 
       super$initialize(
         id = "cmprsk.crr",
@@ -138,9 +158,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       )
     },
 
-    #' @description
-    #' Returns convergence status for each event model.
-    #' @return Named list with \code{TRUE}/\code{FALSE} for each event.
     convergence = function() {
       if (is.null(self$state$convergence)) {
         stop("Model has not been trained yet")
@@ -148,9 +165,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       self$state$convergence
     },
 
-    #' @description
-    #' Returns coefficient-based variable importance for each event.
-    #' @return Data frame with columns: variable, importance, event.
     importance = function() {
       if (is.null(self$state$model)) {
         stop("Model has not been trained yet")
@@ -173,6 +187,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
 
   private = list(
     cov2_info = NULL,
+    initList = NULL,
 
     .train = function(task, row_ids = task$row_ids) {
       if (!inherits(task, "Task")) stop("Task must be a valid mlr3 task")
@@ -184,6 +199,9 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       event_col <- task$target_names[2]
       if (!is.numeric(full_data[[time_col]])) {
         stop("Time column must be numeric")
+      }
+      if (any(is.na(full_data[[time_col]]))) {
+        stop("NAs detected in time column")
       }
 
       if (is.null(pv$cov2_info) || is.null(pv$cov2_info$cov2only)) {
@@ -197,6 +215,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         )
         cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
         if (any(is.na(cov1))) stop("NAs detected in cov1")
+        if (!all(sapply(cov1, is.numeric))) stop("cov1 contains non-numeric values")
         self$state$cov1_formula <- formula
       } else {
         cov1 <- matrix(0, nrow = nrow(full_data), ncol = 1)
@@ -221,6 +240,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
         if (any(is.na(cov2))) stop("NAs detected in cov2")
+        if (!all(sapply(as.matrix(cov2), is.numeric))) stop("cov2 contains non-numeric values")
         uft <- unique(as.numeric(full_data[[time_col]]))
         tf_out <- tf(uft)
         if (!is.matrix(tf_out)) stop("tf must return a matrix")
@@ -243,14 +263,67 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
 
       ftime <- as.numeric(full_data[[time_col]])
       all_event_times <- sort(unique(ftime))
+      fstatus <- full_data[[event_col]]
+      if (is.factor(fstatus)) {
+        # Explicitly map factor levels to numeric (0 = censored, 1 = event 1, 2 = event 2)
+        fstatus <- as.numeric(as.character(fstatus))
+      }
+      if (!is.numeric(fstatus) && !is.integer(fstatus)) {
+        stop("Event column must be numeric, integer, or factor")
+      }
+      if (any(is.na(ftime)) || any(is.na(fstatus))) {
+        stop("NAs detected in ftime or fstatus")
+      }
+      # Validate fstatus values
       event_levels <- as.character(task$cmp_events)
-      fstatus <- as.numeric(full_data[[event_col]])
+      valid_codes <- c(0, as.integer(event_levels))
+      if (!all(fstatus %in% valid_codes)) {
+        stop(sprintf(
+          "fstatus contains invalid event codes: %s. Expected: %s",
+          paste(unique(fstatus[!fstatus %in% valid_codes]), collapse = ", "),
+          paste(valid_codes, collapse = ", ")
+        ))
+      }
+
+      # Debug output
+      cat("Debug: event_levels\n"); str(event_levels)
+      cat("Debug: valid_codes\n"); str(valid_codes)
+      cat("Debug: ftime\n"); str(ftime)
+      cat("Debug: fstatus\n"); str(fstatus)
+      cat("Debug: cov1\n"); str(cov1)
+      if (!is.null(cov2)) cat("Debug: cov2\n"); str(cov2)
+
+      # Validate initList
+      if (!is.null(pv$initList)) {
+        if (!all(event_levels %in% names(pv$initList))) {
+          stop("initList must have entries for all event levels")
+        }
+        n_cov <- ncol(cov1) + (if (!is.null(cov2)) ncol(as.matrix(cov2)) else 0)
+        for (event in event_levels) {
+          if (length(pv$initList[[event]]) != n_cov) {
+            stop(sprintf(
+              "initList for event %s must have %d values", event, n_cov
+            ))
+          }
+          if (any(is.na(pv$initList[[event]]))) {
+            stop(sprintf("initList for event %s must not contain NAs", event))
+          }
+        }
+      }
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
                             tf_final, pv) {
         if (!requireNamespace("cmprsk", quietly = TRUE)) {
           stop("Package 'cmprsk' must be installed")
         }
+        init_vals <- if (!is.null(pv$initList) && target_event %in% names(pv$initList)) {
+          pv$initList[[event]]
+        } else {
+          NULL
+        }
+        # Debug output before cmprsk::crr
+        cat(sprintf("Debug: Training model for event %s\n", target_event))
+        cat("Debug: init_vals\n"); str(init_vals)
         tryCatch({
           if (is.null(cov2)) {
             cmprsk::crr(
@@ -258,7 +331,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
               failcode = as.integer(target_event),
               cencode = 0L,
               maxiter = pv$maxiter,
-              gtol = pv$gtol
+              gtol = pv$gtol,
+              init = init_vals
             )
           } else {
             cmprsk::crr(
@@ -266,7 +340,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
               failcode = as.integer(target_event),
               cencode = 0L,
               maxiter = pv$maxiter,
-              gtol = pv$gtol
+              gtol = pv$gtol,
+              init = init_vals
             )
           }
         }, warning = function(w) {
@@ -349,6 +424,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           colnames(cov1) <- "dummy"
         }
         if (any(is.na(cov1))) stop("NAs detected in cov1")
+        if (!all(sapply(cov1, is.numeric))) stop("cov1 contains non-numeric values in prediction")
       } else {
         cov1 <- matrix(0, nrow = nrow(newdata), ncol = 1)
         colnames(cov1) <- "dummy"
@@ -361,6 +437,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
         if (any(is.na(cov2))) stop("NAs detected in cov2")
+        if (!all(sapply(as.matrix(cov2), is.numeric))) stop("cov2 contains non-numeric values in prediction")
         tf <- self$state$tf
       } else {
         cov2 <- NULL
