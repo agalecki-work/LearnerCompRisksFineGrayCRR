@@ -31,6 +31,10 @@ if (!requireNamespace("cmprsk", quietly = TRUE)) {
 }
 task <- tsk("pbc")
 task$select(c("age", "bili", "sex"))
+# Example initList: one numeric vector per event, length matching covariates
+init_list <- lapply(seq_along(task$cmp_events), function(i) {
+  rep(0, length(task$feature_names))
+})
 learner <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),
@@ -39,7 +43,8 @@ learner <- lrn("cmprsk.crr",
   ),
   maxiter = 100,
   gtol = 1e-6,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = init_list
 )
 learner$train(task)
 pred <- learner$predict(task)
@@ -92,7 +97,8 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
   cov2_info = NULL,
   maxiter = 100L,
   gtol = 1e-06,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -125,6 +131,12 @@ range: 1e-9 to 1e-3.}
 Use parallel processing via
 \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
 Default: \code{FALSE}. Requires \code{future.apply}.}
+
+\item{\code{initList}}{\code{list()} \cr
+List of numeric vectors for initial values in
+\code{\link[cmprsk:crr]{cmprsk::crr}}. One vector per event.
+Default: \code{NULL}. If provided, each vector's length must match
+the number of covariates for the corresponding event model.}
 }
 \if{html}{\out{</div>}}
 }
