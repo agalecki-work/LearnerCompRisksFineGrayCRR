@@ -1,4 +1,4 @@
-message("Fine-Gray Competing Risks Regression initialized at 2025-07-15 16:49:00 EDT")
+message("Fine-Gray Competing Risks Regression initialized at 2025-07-15 17:41:00 EDT")
 #' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
 #' @importFrom cmprsk crr predict.crr
 #' @import paradox
@@ -184,10 +184,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       attributes(ftime) <- NULL
       force(ftime)
 
-      # Prepare fstatus (convert to double)
-      fstatus <- as.double(full_data[[event_col]])
+      # Prepare fstatus (convert to numeric and strip attributes)
+      fstatus <- as.numeric(as.character(full_data[[event_col]]))
       if (!is.numeric(fstatus)) {
-        stop(sprintf("Event column '%s' must be numeric", event_col))
+        stop(sprintf("Event column '%s' must be numeric after conversion", event_col))
       }
       if (any(is.na(fstatus))) {
         stop(sprintf("Event column '%s' contains %d NA values", event_col, sum(is.na(fstatus))))
@@ -209,7 +209,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       }
       message("cov1_features: ", paste(cov1_features, collapse = ", "))
       if (length(cov1_features) == 0 && is.null(pv$cov2_info)) {
-        message("cov1 dim: 276, 0")
         stop("No features selected and cov2_info is NULL: system is exactly singular")
       }
       if (length(cov1_features) > 0) {
@@ -220,6 +219,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
         message("cov1 column names: ", paste(colnames(cov1), collapse = ", "))
         message("cov1 sample: ", paste(head(cov1[1, ]), collapse = ", "))
+        # Explicitly convert cov1 to numeric
+        cov1 <- apply(cov1, 2, as.numeric)
         cov1 <- matrix(as.double(cov1), nrow = nrow(cov1), ncol = ncol(cov1))
         colnames(cov1) <- if (length(cov1_features) == 3 && all(cov1_features %in% c("age", "bili", "sex"))) {
           c("age", "bili", "sexf")
@@ -235,12 +236,13 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         }
         self$state$cov1_formula <- formula
       } else {
-        cov1 <- matrix(0, nrow = nrow(full_data), ncol = 0)
-        colnames(cov1) <- character(0)
+        cov1 <- NULL  # Set to NULL for no covariates
       }
-      message("cov1 dim: ", paste(dim(cov1), collapse = ", "))
-      attributes(cov1) <- list(dim = dim(cov1), dimnames = list(NULL, colnames(cov1)))
-      force(cov1)
+      message("cov1 dim: ", paste(if (is.null(cov1)) "NULL" else dim(cov1), collapse = ", "))
+      if (!is.null(cov1)) {
+        attributes(cov1) <- list(dim = dim(cov1), dimnames = list(NULL, colnames(cov1)))
+        force(cov1)
+      }
 
       # Prepare cov2 (time-varying covariates)
       if (!is.null(pv$cov2_info)) {
@@ -264,6 +266,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         cov2 <- do.call(cbind, cov2_list)
         message("cov2 column names: ", paste(colnames(cov2), collapse = ", "))
         message("cov2 sample: ", paste(head(cov2[1, ]), collapse = ", "))
+        # Explicitly convert cov2 to numeric
+        cov2 <- apply(cov2, 2, as.numeric)
         cov2 <- matrix(as.double(cov2), nrow = nrow(cov2), ncol = ncol(cov2))
         colnames(cov2) <- paste0("cov2_", seq_len(ncol(cov2)))
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
@@ -301,7 +305,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       force(all_event_times)
 
       # Calculate n_covs
-      n_covs <- if (!is.null(cov2)) ncol(cov1) + ncol(as.matrix(cov2)) else ncol(cov1)
+      n_covs <- if (!is.null(cov2)) (if (is.null(cov1)) 0 else ncol(cov1)) + ncol(as.matrix(cov2)) else (if (is.null(cov1)) 0 else ncol(cov1))
       message("n_covs: ", n_covs)
       if (n_covs == 0) {
         stop("No covariates available: system is exactly singular")
@@ -315,10 +319,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           message("Warning: initList is not a list, using default zero vectors")
           lapply(seq_along(event_levels), function(i) rep(0, n_covs))
         } else if (length(pv$initList) != length(event_levels)) {
-          message("Warning: initList length (", length(pv$initList), ") does not match number of events (", length(event_levels), "), using default zero vectors")
+          message(paste0("Warning: initList length (", length(pv$initList), ") does not match number of events (", length(event_levels), "), using default zero vectors"))
           lapply(seq_along(event_levels), function(i) rep(0, n_covs))
         } else if (any(sapply(pv$initList, length) != n_covs)) {
-          message("Warning: initList vector lengths do not match number of covariates (", n_covs), "), using default zero vectors")
+          message(paste0("Warning: initList vector lengths do not match number of covariates (", n_covs, "), using default zero vectors"))
           lapply(seq_along(event_levels), function(i) rep(0, n_covs))
         } else if (!all(sapply(pv$initList, is.numeric))) {
           message("Warning: initList contains non-numeric vectors, using default zero vectors")
@@ -335,7 +339,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       message("init_values structure: ", paste(capture.output(str(init_values)), collapse = "\n"))
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
-                           tf_final, pv, init = NULL) {
+                           tf_final, pv, init) {  # Removed default init = NULL
         if (!requireNamespace("cmprsk", quietly = TRUE)) {
           stop("Package 'cmprsk' must be installed")
         }
@@ -348,9 +352,9 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         message("fstatus length: ", length(fstatus))
         message("fstatus unique values: ", paste(unique(fstatus), collapse = ", "))
         message("fstatus attributes: ", paste(capture.output(str(attributes(fstatus))), collapse = "\n"))
-        message("cov1 types: ", paste(sapply(seq_len(ncol(cov1)), function(i) class(cov1[, i])), collapse = ", "))
-        message("cov1 dim: ", paste(dim(cov1), collapse = ", "))
-        message("cov1 sample: ", paste(head(cov1[1, ]), collapse = ", "))
+        message("cov1 types: ", paste(if (is.null(cov1)) "NULL" else sapply(seq_len(ncol(cov1)), function(i) class(cov1[, i])), collapse = ", "))
+        message("cov1 dim: ", paste(if (is.null(cov1)) "NULL" else dim(cov1), collapse = ", "))
+        message("cov1 sample: ", paste(if (is.null(cov1)) "NULL" else head(cov1[1, ]), collapse = ", "))
         message("cov1 attributes: ", paste(capture.output(str(attributes(cov1))), collapse = "\n"))
         if (!is.null(cov2)) {
           message("cov2 types: ", paste(sapply(seq_len(ncol(as.matrix(cov2))), function(i) class(cov2[, i])), collapse = ", "))
@@ -358,14 +362,20 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           message("cov2 sample: ", paste(head(cov2[1, ]), collapse = ", "))
           message("cov2 attributes: ", paste(capture.output(str(attributes(cov2))), collapse = "\n"))
         }
-        n_covs <- if (!is.null(cov2)) ncol(cov1) + ncol(as.matrix(cov2)) else ncol(cov1)
+        n_covs <- if (!is.null(cov2)) (if (is.null(cov1)) 0 else ncol(cov1)) + ncol(as.matrix(cov2)) else (if (is.null(cov1)) 0 else ncol(cov1))
         message("n_covs in fit_model: ", n_covs)
         if (n_covs == 0) {
           stop("No covariates provided in fit_model: system is exactly singular")
         }
-        if (is.null(init)) {
+        # Ensure init is a numeric vector
+        init <- as.double(init)
+        if (length(init) != n_covs) {
+          message("Warning: init length (", length(init), ") does not match n_covs (", n_covs, "), using default zero vector")
           init <- rep(0, n_covs)
-          message("Using default init: ", paste(init, collapse = ", "))
+        }
+        if (!is.numeric(init) || any(is.na(init))) {
+          message("Warning: init is not numeric or contains NA, using default zero vector")
+          init <- rep(0, n_covs)
         }
         message("init structure: ", paste(capture.output(str(init)), collapse = "\n"))
         message("failcode: ", as.integer(target_event))
@@ -375,7 +385,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
             cmprsk::crr(
               ftime = ftime,
               fstatus = fstatus,
-              cov1 = cov1,
+              cov1 = if (is.null(cov1)) matrix(0, nrow = length(ftime), ncol = 0) else cov1,
               failcode = as.integer(target_event),
               cencode = 0L,
               maxiter = pv$maxiter,
@@ -386,7 +396,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
             cmprsk::crr(
               ftime = ftime,
               fstatus = fstatus,
-              cov1 = cov1,
+              cov1 = if (is.null(cov1)) matrix(0, nrow = length(ftime), ncol = 0) else cov1,
               cov2 = cov2,
               tf = tf_final,
               failcode = as.integer(target_event),
@@ -471,6 +481,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           data = newdata
         )[, -1, drop = FALSE]
         message("Predict cov1 column names: ", paste(colnames(cov1), collapse = ", "))
+        cov1 <- apply(cov1, 2, as.numeric)
         cov1 <- matrix(as.double(cov1), nrow = nrow(cov1), ncol = ncol(cov1))
         colnames(cov1) <- if (ncol(cov1) == 3 && all(task$feature_names %in% c("age", "bili", "sex"))) {
           c("age", "bili", "sexf")
@@ -478,19 +489,17 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           colnames(cov1)
         }
         if (ncol(cov1) == 0) {
-          cov1 <- matrix(0, nrow = nrow(newdata), ncol = 0)
-          colnames(cov1) <- character(0)
+          cov1 <- NULL
         }
-        if (any(is.na(cov1))) {
+        if (!is.null(cov1) && any(is.na(cov1))) {
           stop(sprintf("NAs detected in cov1: %s rows have missing values",
                        sum(rowSums(is.na(cov1)) > 0)))
         }
-        if (!all(apply(cov1, 2, is.numeric))) {
+        if (!is.null(cov1) && !all(apply(cov1, 2, is.numeric))) {
           stop("All fixed covariates (cov1) must be numeric")
         }
       } else {
-        cov1 <- matrix(0, nrow = nrow(newdata), ncol = 0)
-        colnames(cov1) <- character(0)
+        cov1 <- NULL
       }
 
       if (!is.null(self$state$cov2_formulas)) {
@@ -499,6 +508,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         })
         cov2 <- do.call(cbind, cov2_list)
         message("Predict cov2 column names: ", paste(colnames(cov2), collapse = ", "))
+        cov2 <- apply(cov2, 2, as.numeric)
         cov2 <- matrix(as.double(cov2), nrow = nrow(cov2), ncol = ncol(cov2))
         colnames(cov2) <- paste0("cov2_", seq_len(ncol(cov2)))
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
@@ -529,7 +539,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
           }
           pred_raw <- cmprsk::predict.crr(
             model,
-            cov1 = cov1,
+            cov1 = if (is.null(cov1)) matrix(0, nrow = nrow(newdata), ncol = 0) else cov1,
             cov2 = cov2,
             tf = tf,
             time = all_times
