@@ -1,6 +1,7 @@
 #' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
 #' @import paradox
 #' @importFrom mlr3misc invoke
+#' @importFrom cmprsk crr
 #' @import R6
 #'
 #' @title Fine-Gray Competing Risks Regression
