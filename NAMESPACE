@@ -3,6 +3,7 @@
 export(LearnerCompRisksFineGrayCRR)
 import(R6)
 import(paradox)
+importFrom(cmprsk,crr)
 importFrom(mlr3,mlr_learners)
 importFrom(mlr3misc,invoke)
 importFrom(mlr3proba,LearnerCompRisks)
