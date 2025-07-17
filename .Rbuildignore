@@ -1,3 +1,5 @@
 ^\.lintr$
 ^man-roxygen$
 ^LICENSE\.md$
+^doc$
+^Meta$
