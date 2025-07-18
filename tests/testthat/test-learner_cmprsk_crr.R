@@ -2,24 +2,6 @@ library(testthat)
 library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)  # Explicitly load the package
 
-# Helper function to check if a package is installed
-skip_if_not_installed <- function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    skip(paste("Package", pkg, "not installed"))
-  }
-}
-
-# Shared setup for task and partition
-setup_task <- function() {
-  task <- tsk("pbc")
-  task$set_col_roles(cols = "status", add_to = "stratum")  # Status as stratum
-  task$col_roles$feature <- setdiff(task$feature_names, "status") # Rm status
-  task$select(c("age", "sex", "bili"))
-  set.seed(123)
-  part <- partition(task, ratio = 0.7)
-  list(task = task, part = part)
-}
-
 test_that("Task configuration is correct", {
   skip_if_not_installed("mlr3proba")
   setup <- setup_task()
