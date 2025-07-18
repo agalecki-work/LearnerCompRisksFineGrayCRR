@@ -37,6 +37,7 @@ task <- tsk("pbc")
 task$set_col_roles(cols = "status", add_to = "stratum")
 task$col_roles$feature <- setdiff(task$feature_names, "status")
 task$select(c("age", "sex", "bili"))
+print(task)
 ```
 
 # Training the Learner
@@ -57,6 +58,7 @@ learner <- lrn("cmprsk.crr",
 set.seed(123)
 part <- partition(task, ratio = 0.7)
 learner$train(task, part$train)
+print(learner)
 ```
 # Prediction
 
