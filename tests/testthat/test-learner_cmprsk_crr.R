@@ -27,11 +27,11 @@ test_that("Training and prediction with no cov2_info", {
   task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
   part <- create_partition(task)
   learner <- lrn("cmprsk.crr")
-  # expect_silent(learner$train(task, part$train))
+  expect_silent(learner$train(task, part$train))
   expect_true(exists("PredictionCompRisks",
                      envir = asNamespace("mlr3proba"),
                      inherits = FALSE))
-  # pred <- learner$predict(task, part$test)
+  pred <- learner$predict(task, part$test)
   expect_s3_class(pred, "PredictionCompRisks")
   expect_equal(names(pred$cif), as.character(task$cmp_events))
 })
@@ -39,9 +39,8 @@ test_that("Training and prediction with no cov2_info", {
 test_that("Numeric predictors with two-column tf matrix", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_numeric <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "bili"),
@@ -57,9 +56,8 @@ test_that("Numeric predictors with two-column tf matrix", {
 test_that("Mixed numeric and factor variables with two-column tf matrix", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_mixed <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "sex"),
@@ -75,9 +73,8 @@ test_that("Mixed numeric and factor variables with two-column tf matrix", {
 test_that("Repeats in cov2nms with two-column tf matrix", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_repeats <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "age"),
@@ -93,9 +90,8 @@ test_that("Repeats in cov2nms with two-column tf matrix", {
 test_that("cov2only with bili as time-varying only", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_cov2only <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "bili"),
@@ -119,9 +115,8 @@ test_that("cov2only with bili as time-varying only", {
 test_that("Convergence method", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner <- lrn("cmprsk.crr")
   expect_silent(learner$train(task, part$train))
   expect_type(learner$state$model, "list")
@@ -132,9 +127,8 @@ test_that("Convergence method", {
 test_that("Importance method", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner <- lrn("cmprsk.crr")
   expect_silent(learner$train(task, part$train))
   imp <- learner$importance()
@@ -147,9 +141,8 @@ test_that("Importance method", {
 test_that("Single predictor", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   task_single <- task$clone()
   task_single$select(c("age"))
   learner_single <- lrn("cmprsk.crr")
@@ -161,9 +154,8 @@ test_that("Single predictor", {
 test_that("No features", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   task_nofeat <- task$clone()
   task_nofeat$select(character(0))
   learner_nofeat <- lrn("cmprsk.crr")
@@ -174,9 +166,8 @@ test_that("No features", {
 test_that("Invalid cov2_info (non-existent feature)", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_invalid <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("invalid"),
@@ -190,9 +181,8 @@ test_that("Invalid cov2_info (non-existent feature)", {
 test_that("Mismatched tf output dimensions", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_mismatch <- lrn("cmprsk.crr",
     cov2_info = list(
       cov2nms = c("age", "bili"),
@@ -205,8 +195,8 @@ test_that("Mismatched tf output dimensions", {
 
 test_that("Empty task", {
   skip_if_not_installed("mlr3proba")
-  setup <- setup_task()
-  task <- setup$task
+  task <- configure_task(features= c(character(0)), stratum = "status")
+  part <- create_partition(task)
   task_empty <- task$clone()
   expect_error(task_empty$filter(integer(0)), "competing event\\(s\\)")
 })
@@ -214,9 +204,8 @@ test_that("Empty task", {
 test_that("Parameter validation", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner <- lrn("cmprsk.crr")
   expected_params <- c("maxiter", "gtol", "parallel", "cov2_info")
   expect_true(all(expected_params %in% learner$param_set$ids()))
@@ -239,9 +228,8 @@ test_that("Parallel execution", {
   skip_if_not_installed("mlr3proba")
   skip_if_not_installed("cmprsk")
   skip_if_not_installed("future.apply")
-  setup <- setup_task()
-  task <- setup$task
-  part <- setup$part
+  task <- configure_task(features=c("age", "bili", "sex"), stratum = "status")
+  part <- create_partition(task)
   learner_parallel <- lrn("cmprsk.crr", parallel = TRUE)
   expect_silent(learner_parallel$train(task, part$train))
   pred_parallel <- learner_parallel$predict(task, part$test)
