@@ -1,0 +1,90 @@
+---
+title: "Fine-Gray Competing Risks Regression with mlr3"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Fine-Gray Competing Risks Regression with mlr3}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+# Introduction
+
+This vignette demonstrates the `cmprsk.crr` learner from
+the `LearnerCompRisksFineGrayCRR` package, which implements
+Fine-Gray competing risks regression using `cmprsk::crr`. 
+The learner estimates cumulative incidence functions (CIFs)
+for competing risks scenarios, supporting fixed and time-varying
+ovariates
+
+# Setup
+
+Load required packages and create a task using the `pbc` dataset:
+
+```{r setup}
+library(mlr3)
+library(mlr3proba)
+library(LearnerCompRisksFineGrayCRR)
+if (!requireNamespace("cmprsk", quietly = TRUE)) {
+  stop("Package 'cmprsk' must be installed")
+}
+task <- tsk("pbc")
+task$set_col_roles(cols = "status", add_to = "stratum")
+task$col_roles$feature <- setdiff(task$feature_names, "status")
+task$select(c("age", "sex", "bili"))
+print(task)
+print(table(task$data()[["status"]]))
+
+```
+
+# Training the Learner
+
+Train the Fine-Gray model with time-varying covariates:
+
+```{r train}
+learner <- lrn("cmprsk.crr",
+  cov2_info = list(
+    cov2nms = c("age", "bili"),
+    tf = function(uft) cbind(log(uft), log(uft + 1)),
+    cov2only = NULL
+  ),
+  maxiter = 50,
+  gtol = 1e-7,
+  parallel = FALSE
+)
+set.seed(123)
+part <- partition(task, ratio = 0.7)
+learner$train(task, part$train)
+print(learner)
+```
+# Prediction
+
+Predict CIFs for the test set:
+
+```{r predict}
+pred <- learner$predict(task, part$test)
+print(pred)
+```
+# Model Diagnostics
+
+Check convergence and variable importance:
+
+```{r diagnostics}
+learner$convergence()
+learner$importance()
+```
+References
+
+Fine, J. P., & Gray, R. J. (1999). A Proportional Hazards Model for the Subdistribution of a Competing Risk. Journal of the American Statistical Association, 94(446), 496--509. doi:10.1080/01621459.1999.10474144
+
+
+
+
+
+
+

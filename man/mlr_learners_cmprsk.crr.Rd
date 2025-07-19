@@ -13,13 +13,15 @@ and time-varying covariates. Predictions are generated using
 \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
 for specified event types across unique event times from training data.
 }
-\section{Methods}{
+\section{Public Methods}{
 
 \describe{
-\item{\code{convergence()}}{Returns a named list with convergence status
-(\code{TRUE}/\code{FALSE}) for each event model.}
-\item{\code{importance()}}{Returns a data frame with coefficient-based
-variable importance for each event, scaled by absolute coefficient sums.}
+\item{\code{initialize(cov2_info, maxiter, gtol, parallel)}}{
+Creates a new instance of this learner.}
+\item{\code{convergence()}}{
+Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
+\item{\code{importance()}}{
+Returns coefficient-based variable importance for each event as a data frame.}
 }
 }
 
@@ -117,9 +119,8 @@ Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
 Default: 100, range: 1 to 1000.}
 
 \item{\code{gtol}}{\code{numeric(1)} \cr
-Convergence tolerance for
-\code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
-range: 1e-9 to 1e-3.}
+Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}.
+Default: 1e-6, range: 1e-9 to 1e-3.}
 
 \item{\code{parallel}}{\code{logical(1)} \cr
 Use parallel processing via
@@ -152,7 +153,7 @@ Returns coefficient-based variable importance for each event.
 }
 
 \subsection{Returns}{
-Data frame with columns: variable, importance, event.
+Data frame with columns: \code{variable}, \code{importance}, \code{event}.
 }
 }
 \if{html}{\out{<hr>}}

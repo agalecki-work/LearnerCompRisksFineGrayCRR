@@ -1,9 +1,5 @@
-#' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
-#' @import paradox
-#' @importFrom mlr3misc invoke
-#' @importFrom cmprsk crr
-#' @import R6
-#'
+message("LearnerCompRisksFineGrayCRR updated at 2025-07-19 13:33")
+
 #' @title Fine-Gray Competing Risks Regression
 #' @name mlr_learners_cmprsk.crr
 #' @templateVar id cmprsk.crr
@@ -20,12 +16,14 @@
 #' \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
 #' for specified event types across unique event times from training data.
 #'
-#' @section Methods:
+#' @section Public Methods:
 #' \describe{
-#'   \item{`convergence()`}{Returns a named list with convergence status
-#'     (\code{TRUE}/\code{FALSE}) for each event model.}
-#'   \item{`importance()`}{Returns a data frame with coefficient-based
-#'     variable importance for each event, scaled by absolute coefficient sums.}
+#'   \item{\code{initialize(cov2_info, maxiter, gtol, parallel)}}{
+#'     Creates a new instance of this learner.}
+#'   \item{\code{convergence()}}{
+#'     Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
+#'   \item{\code{importance()}}{
+#'     Returns coefficient-based variable importance for each event as a data frame.}
 #' }
 #'
 #' @references
@@ -33,6 +31,12 @@
 #' the Subdistribution of a Competing Risk. \emph{Journal of the American
 #' Statistical Association}, 94(446), 496--509.
 #' \doi{10.1080/01621459.1999.10474144}
+#'
+#' @importFrom mlr3proba LearnerCompRisks PredictionCompRisks
+#' @import paradox
+#' @importFrom mlr3misc invoke
+#' @importFrom cmprsk crr
+#' @import R6
 #'
 #' @export
 #' @examples
@@ -58,7 +62,7 @@
 #' print(pred)
 #' learner$convergence()
 #' learner$importance()
-LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
+LearnerCompRisksFineGrayCRR <- R6::R6Class(
   "LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
@@ -81,22 +85,21 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
     #'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
     #'   Default: 100, range: 1 to 1000.
     #' @param gtol `numeric(1)` \cr
-    #'   Convergence tolerance for
-    #'   \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6,
-    #'   range: 1e-9 to 1e-3.
+    #'   Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}.
+    #'   Default: 1e-6, range: 1e-9 to 1e-3.
     #' @param parallel `logical(1)` \cr
     #'   Use parallel processing via
     #'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
     #'   Default: \code{FALSE}. Requires \code{future.apply}.
     initialize = function(cov2_info = NULL, maxiter = 100L,
-                          gtol = 1e-6, parallel = FALSE) {
+                         gtol = 1e-6, parallel = FALSE) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
           stop("cov2_info must contain 'cov2nms' and 'tf'")
         }
         if (!is.character(cov2_info$cov2nms) ||
-              length(cov2_info$cov2nms) == 0) {
+            length(cov2_info$cov2nms) == 0) {
           stop("cov2nms must be a non-empty character vector")
         }
         if (!is.function(cov2_info$tf)) stop("tf must be a function")
@@ -141,6 +144,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
 
     #' @description
     #' Returns convergence status for each event model.
+    #'
     #' @return Named list with \code{TRUE}/\code{FALSE} for each event.
     convergence = function() {
       if (is.null(self$state$convergence)) {
@@ -151,7 +155,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
 
     #' @description
     #' Returns coefficient-based variable importance for each event.
-    #' @return Data frame with columns: variable, importance, event.
+    #'
+    #' @return Data frame with columns: \code{variable}, \code{importance}, \code{event}.
     importance = function() {
       if (is.null(self$state$model)) {
         stop("Model has not been trained yet")
@@ -175,6 +180,35 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
   private = list(
     cov2_info = NULL,
 
+    # Wrapper function for cmprsk::crr
+    crr_wrapper = function(ftime, fstatus, cov1, cov2 = NULL, tf = NULL,
+                          cengroup = NULL, failcode = 1, cencode = 0,
+                          subset = NULL, na.action = na.omit,
+                          gtol = 1e-06, maxiter = 10, init = NULL,
+                          variance = TRUE) {
+      if (!requireNamespace("cmprsk", quietly = TRUE)) {
+        stop("Package 'cmprsk' is required. Please install it using install.packages('cmprsk').")
+      }
+      args <- list(
+        ftime = ftime,
+        fstatus = fstatus,
+        cov1 = cov1,
+        cov2 = cov2,
+        tf = tf,
+        cengroup = cengroup,
+        failcode = failcode,
+        cencode = cencode,
+        subset = substitute(subset),
+        na.action = na.action,
+        gtol = gtol,
+        maxiter = maxiter,
+        init = init,
+        variance = variance
+      )
+      args <- args[!sapply(args, is.null)]
+      mlr3misc::invoke(cmprsk::crr, .args = args)
+    },
+
     .train = function(task, row_ids = task$row_ids) {
       if (!inherits(task, "Task")) stop("Task must be a valid mlr3 task")
       if (!all(row_ids %in% task$row_ids)) stop("Invalid row_ids")
@@ -185,6 +219,9 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       event_col <- task$target_names[2]
       if (!is.numeric(full_data[[time_col]])) {
         stop("Time column must be numeric")
+      }
+      if (!is.numeric(full_data[[event_col]]) && !is.integer(full_data[[event_col]])) {
+        stop("Event column must be numeric or integer")
       }
 
       if (is.null(pv$cov2_info) || is.null(pv$cov2_info$cov2only)) {
@@ -248,40 +285,50 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
       fstatus <- as.numeric(full_data[[event_col]])
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
-                            tf_final, pv) {
-        if (!requireNamespace("cmprsk", quietly = TRUE)) {
-          stop("Package 'cmprsk' must be installed")
+                           tf_final, pv) {
+        # Input validation
+        if (!is.numeric(ftime) || any(is.na(ftime))) {
+          stop("ftime must be a non-NA numeric vector")
         }
+        if (!is.numeric(fstatus) && !is.integer(fstatus)) {
+          stop("fstatus must be a numeric or integer vector")
+        }
+        if (!is.matrix(cov1) || any(is.na(cov1))) {
+          stop("cov1 must be a non-NA matrix")
+        }
+        if (!is.null(cov2) && (!is.matrix(cov2) || any(is.na(cov2)))) {
+          stop("cov2 must be a non-NA matrix or NULL")
+        }
+        if (!is.null(tf_final) && !is.function(tf_final)) {
+          stop("tf_final must be a function or NULL")
+        }
+
         tryCatch({
-          if (is.null(cov2)) {
-            cmprsk::crr(
-              ftime, fstatus, cov1,
-              failcode = as.integer(target_event),
-              cencode = 0L,
-              maxiter = pv$maxiter,
-              gtol = pv$gtol
-            )
-          } else {
-            cmprsk::crr(
-              ftime, fstatus, cov1, cov2, tf_final,
-              failcode = as.integer(target_event),
-              cencode = 0L,
-              maxiter = pv$maxiter,
-              gtol = pv$gtol
-            )
-          }
+          private$crr_wrapper(
+            ftime = ftime,
+            fstatus = fstatus,
+            cov1 = cov1,
+            cov2 = cov2,
+            tf = tf_final,
+            failcode = as.integer(target_event),
+            cencode = 0L,
+            maxiter = pv$maxiter,
+            gtol = pv$gtol
+          )
         }, warning = function(w) {
           warning(sprintf("Convergence warning for event %s: %s",
-                          target_event, w$message))
+                         target_event, w$message))
           NULL
         }, error = function(e) {
           stop(sprintf("Failed to train model for event %s: %s",
-                       target_event, e$message))
+                      target_event, e$message))
         })
       }
 
       if (pv$parallel) {
-        requireNamespace("future.apply", quietly = TRUE)
+        if (!requireNamespace("future.apply", quietly = TRUE)) {
+          stop("Package 'future.apply' is required for parallel processing")
+        }
         models <- future.apply::future_lapply(
           event_levels, fit_model,
           ftime = ftime,
@@ -365,7 +412,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         tf <- self$state$tf
       } else {
         cov2 <- NULL
-        tf <- NULL
+        tf = NULL
       }
 
       all_times <- self$state$all_event_times
@@ -378,14 +425,17 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class( # nolint: object_name_linter.
         }
         pred <- tryCatch({
           if (!requireNamespace("cmprsk", quietly = TRUE)) {
-            stop("Package 'cmprsk' must be installed")
+            stop("Package 'cmprsk' is required")
           }
-          pred_raw <- cmprsk::predict.crr(
-            model,
-            cov1 = cov1,
-            cov2 = cov2,
-            tf = tf,
-            time = all_times
+          pred_raw <- mlr3misc::invoke(
+            cmprsk::predict.crr,
+            .args = list(
+              object = model,
+              cov1 = cov1,
+              cov2 = cov2,
+              tf = tf,
+              time = all_times
+            )
           )
           pred_times <- pred_raw[, 1]
           pred_cif <- t(pred_raw[, -1, drop = FALSE])
