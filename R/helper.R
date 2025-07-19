@@ -5,13 +5,29 @@ skip_if_not_installed <- function(pkg) {
   }
 }
 
-# Shared setup for task and partition
-setup_task <- function() {
-  task <- mlr3::tsk("pbc")
-  task$col_roles$feature <- setdiff(task$feature_names, "status") # Rm status
-  task$select(c("age", "sex", "bili"))
-  task$set_col_roles(cols = "status", add_to = "stratum")  # Status as stratum
-  set.seed(123)
-  part <- mlr3::partition(task, ratio = 0.7)
-  list(task = task, part = part)
+# Task configuration function
+configure_task <- function(taskName ="pbc", stratum = NULL, features = "trt") {
+  task <- mlr3::tsk(taskName)
+  data_cols <- names(task$data())
+  if (!is.null(stratum) && !stratum %in% data_cols) {
+    stop(sprintf("Stratum variable '%s' not found in task", stratum))
+  }
+  if (!is.null(features) && !all(features %in% data_cols)) {
+    stop(sprintf("Features %s not found in task",
+                 paste(setdiff(features, data_cols), collapse = ", ")))
+  }
+  if (!is.null(features)) {
+    task$select(features)
+  }
+  if (!is.null(stratum)) {
+    task$set_col_roles(cols = stratum, add_to = "stratum")
+  }
+  task
 }
+
+# Partition function
+create_partition <- function(task, ratio = 0.7) {
+  set.seed(123)
+  mlr3::partition(task, ratio = ratio)
+}
+
