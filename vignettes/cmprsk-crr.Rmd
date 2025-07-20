@@ -42,9 +42,8 @@ if (!requireNamespace("cmprsk", quietly = TRUE)) {
   stop("Package 'cmprsk' must be installed")
 }
 task <- tsk("pbc")
-task$set_col_roles(cols = "status", add_to = "stratum")
-task$col_roles$feature <- setdiff(task$feature_names, "status")
 task$select(c("age", "sex", "bili"))
+task$set_col_roles(cols = "status", add_to = "stratum")
 print(task)
 print(table(task$data()[["status"]]))
 set.seed(123)
