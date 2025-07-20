@@ -10,9 +10,15 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  eval = requireNamespace("mlr3proba", quietly = TRUE) &&
+         requireNamespace("cmprsk", quietly = TRUE) &&
+         requireNamespace("LearnerCompRisksFineGrayCRR", quietly = TRUE) &&
+         requireNamespace("future", quietly = TRUE) &&
+         requireNamespace("future.apply", quietly = TRUE)
 )
 ```
+
 # Introduction
 
 This vignette demonstrates the `cmprsk.crr` learner from
@@ -20,7 +26,9 @@ the `LearnerCompRisksFineGrayCRR` package, which implements
 Fine-Gray competing risks regression using `cmprsk::crr`. 
 The learner estimates cumulative incidence functions (CIFs)
 for competing risks scenarios, supporting fixed and time-varying
-ovariates
+ovariates. It is designed for tasks with multiple mutually exclusive events,
+such as survival analysis with competing risks. For detailed documentation, 
+see `?LearnerCompRisksFineGrayCRR::mlr_learners_cmprsk.crr`.
 
 # Setup
 
@@ -39,29 +47,88 @@ task$col_roles$feature <- setdiff(task$feature_names, "status")
 task$select(c("age", "sex", "bili"))
 print(task)
 print(table(task$data()[["status"]]))
+set.seed(123)
+part <- partition(task, ratio = 0.7)
+sapply(part, length) # partition sizes
 
 ```
 
+The `pbc` task is configured with age, sex, and bili as features and status
+as the stratum for competing events.
+
+
+
+
 # Training the Learner
 
-Train the Fine-Gray model with time-varying covariates:
+## Fixed covariates only
 
-```{r train}
-learner <- lrn("cmprsk.crr",
+
+Train the Fine-Gray model with fixed (time-invariant) covariates (no time-varying effects):
+
+```{r train_fixed}
+learner <- lrn("cmprsk.crr", maxiter = 100, gtol = 1e-6, parallel = FALSE)
+learner$train(task, row_ids = part$train)
+print(learner)
+print(learner$model)
+```
+
+The learner is initialized with default parameters: 
+`maxiter = 100` for maximum iterations and `gtol = 1e-6` for convergence tolerance.
+
+
+
+
+## Time-Varying Covariates
+
+
+`
+Train the model with time-varying covariates, where `bili` is used only
+as a time-varying effect:
+
+```{r train_time_varying}
+learner_tv <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "bili"),
     tf = function(uft) cbind(log(uft), log(uft + 1)),
-    cov2only = NULL
+    cov2only = "bili"
   ),
   maxiter = 50,
   gtol = 1e-7,
   parallel = FALSE
 )
-set.seed(123)
-part <- partition(task, ratio = 0.7)
-learner$train(task, part$train)
-print(learner)
+learner_tv$train(task, row_ids = part$train)
+print(learner_tv$param_set)
+print(learner_tv$model)
+
 ```
+
+
+The `cov2_info` parameter specifies time-varying covariates (age and bili)
+with a transformation function (tf) that applies logarithmic transformations
+to event times. The `cov2only = "bili"` ensures bili is used only 
+as a time-varying covariate, not as a fixed effect.
+
+## Parallel Processing
+
+For datasets with many events, parallel processing can reduce computation time.
+This requires the `future.apply` package and a future plan:
+
+```{r train_parallel, eval = requireNamespace("future.apply", quietly = TRUE) && requireNamespace("future", quietly = TRUE)}
+on.exit(future::plan("sequential"), add = TRUE)
+future::plan("multisession")
+learner_parallel <- lrn("cmprsk.crr", parallel = TRUE)
+learner_parallel$train(task, row_ids = part$train)
+print(learner_parallel$param_set)
+```
+
+Set `future::plan("multisession")` or another plan before enabling 
+`parallel = TRUE`. This is particularly useful for large datasets 
+or tasks with many competing events.
+
+
+
+
 # Prediction
 
 Predict CIFs for the test set:
@@ -69,7 +136,50 @@ Predict CIFs for the test set:
 ```{r predict}
 pred <- learner$predict(task, part$test)
 print(pred)
+class(pred)
+
 ```
+
+The predictions are `PredictionCompRisks` objects, containing CIFs for each event as 
+data tables, with rows corresponding to observations and columns to unique event
+times from the training data.
+
+
+```{r plot_cif1, fig.align = "center", fig.width = 7, fig.height = 5, out.width = "80%"}
+
+# Extract cif1
+cif1 <- pred$cif[["1"]]  # Matrix: 82 x 103
+dim(cif1)  # Confirm: [1] 82 103
+
+# Plot CIF curves for 5 randomly selected observations
+set.seed(123)
+sample_rows <- sample(1:82, 5)
+time_points <- as.numeric(colnames(cif1))  # Extract numeric time points
+matplot(
+  time_points,
+  t(cif1[sample_rows, ]),
+  type = "l",
+  lty = 1,
+  col = 1:5,
+  xlab = "Time",
+  ylab = "Cumulative Incidence",
+  main = "Cumulative Incidence Functions for Event 1",
+  ylim = c(0, 1)
+)
+legend(
+  "topleft",
+  legend = paste("Obs", task$row_names[part$test][sample_rows]),
+  col = 1:5,
+  lty = 1
+)
+```
+
+This plot shows the cumulative incidence curves for event 1 
+for five randomly selected test observations, 
+with time on the x-axis and CIF values (0 to 1) on the y-axis.
+
+
+
 # Model Diagnostics
 
 Check convergence and variable importance:
@@ -77,7 +187,33 @@ Check convergence and variable importance:
 ```{r diagnostics}
 learner$convergence()
 learner$importance()
+learner_tv$convergence()
+learner_tv$importance()
+
 ```
+
+* *Convergence:* The `convergence()` method returns a named list with TRUE or FALSE 
+for each event, indicating whether the model converged. Non-convergence may occur
+with strict gtol (e.g., 1e-9) or low maxiter (e.g., 1).
+
+* *Importance:* The `importance()` method returns a data frame with normalized absolute coefficients, 
+showing the relative measure of each variable influence for each event. Higher values indicate greater
+importance.
+
+## See Also
+
+* `?LearnerCompRisksFineGrayCRR::mlr_learners_cmprsk.crr` for learner documentation.
+* `?cmprsk::crr` for details on the underlying Fine-Gray model.
+* `?mlr3proba::LearnerCompRisks` for the base class used by this learner
+
+
+```{r cleanup, include = FALSE}
+future::plan("sequential")
+```
+
+
+
+
 References
 
 Fine, J. P., & Gray, R. J. (1999). A Proportional Hazards Model for the Subdistribution of a Competing Risk. Journal of the American Statistical Association, 94(446), 496--509. doi:10.1080/01621459.1999.10474144

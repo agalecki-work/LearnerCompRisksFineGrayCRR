@@ -1,4 +1,8 @@
-library(testthat)
+#' Configure a task for competing risks analysis
+#' @param features Character vector of feature names.
+#' @param stratum Character name of the stratum column.
+#' @return An mlr3 task.
+#' @keywords internallibrary(testthat)
 library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)  # Explicitly load the package
 

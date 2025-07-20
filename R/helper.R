@@ -1,10 +1,23 @@
-# Helper function to check if a package is installed
+#'
+#' A helper function to skip a test in `testthat` if a specified R package is not installed.
+#' It checks if the package is available using `requireNamespace()` and skips the test with
+#' an informative message if the package is not found.
+#'
+#' @param pkg `character(1)` \cr
+#'   The name of the package to check for installation.
+#' @return Invisible `NULL`. The function is called for its side effect of skipping the test.
+#' @keywords internal
 skip_if_not_installed <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     testthat::skip(paste("Package", pkg, "not installed"))
   }
 }
 
+#' Configure a task for competing risks analysis
+#' @param features Character vector of feature names.
+#' @param stratum Character name of the stratum column.
+#' @return An mlr3 task.
+#' @keywords internal
 # Task configuration function
 configure_task <- function(taskName ="pbc", stratum = NULL, features = "trt") {
   task <- mlr3::tsk(taskName)
@@ -25,7 +38,13 @@ configure_task <- function(taskName ="pbc", stratum = NULL, features = "trt") {
   task
 }
 
+
+
 # Partition function
+#' Create a train-test partition for a task
+#' @param task An mlr3 task.
+#' @return A list with train and test row IDs.
+#' @keywords internal
 create_partition <- function(task, ratio = 0.7) {
   set.seed(123)
   mlr3::partition(task, ratio = ratio)
