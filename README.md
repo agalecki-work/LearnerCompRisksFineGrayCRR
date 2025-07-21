@@ -7,7 +7,7 @@ An `mlr3` learner for Fine-Gray competing risks regression using `cmprsk::crr()`
 Install the package directly from GitHub:
 
 ```
-devtools::install_github("agalecki-work/LearnerCompRisksFineGrayCRR")
+devtools::install_github("agalecki-work/LearnerCompRisksFineGrayCRR", build_vignettes= TRUE)
 ```
 
 ## Requirement
