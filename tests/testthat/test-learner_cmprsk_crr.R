@@ -239,3 +239,51 @@ test_that("Parallel execution", {
   pred_parallel <- learner_parallel$predict(task, part$test)
   expect_s3_class(pred_parallel, "PredictionCompRisks")
 })
+
+test_that("LearnerCompRisksFineGrayCRR works with initList", {
+  skip_if_not_installed("cmprsk")
+  task <- tsk("pbc")
+  task$set_col_roles(cols = "status", add_to = "stratum")
+  task$col_roles$feature <- setdiff(task$feature_names, "status")
+  task$select(c("age", "sex", "bili"))
+  part <- partition(task, ratio = 0.7)
+
+  # Three covariates: age, sex, bili (fixed); no cov2
+  learner <- lrn("cmprsk.crr",
+    maxiter = 100,
+    gtol = 1e-6,
+    parallel = FALSE,
+    initList = list("1" = c(0.1, 0.2, 0.3), "2" = c(0.1, 0.2, 0.3))
+  )
+  learner$train(task, row_ids = part$train)
+  expect_true(is.list(learner$model) && length(learner$model) >= 1)
+  expect_true(all(unlist(learner$convergence())))
+
+  pred <- learner$predict(task, row_ids = part$test)
+  expect_s3_class(pred, "PredictionCompRisks")
+  expect_true(nrow(pred$cif[["1"]]) == length(part$test))
+
+  # Test invalid initList
+  expect_error(
+    {
+      learner <- lrn("cmprsk.crr", initList = list("1" = c(0.1, 0.2))) # Wrong length
+      learner$train(task)
+    },
+    "initList for event 1 must have 3 values"
+  )
+  expect_error(
+    {
+      learner <- lrn("cmprsk.crr", initList = list("1" = c(0.1, 0.2, NA))) # Contains NA
+      learner$train(task)
+    },
+    "initList for event 1 must be a numeric vector with no NAs"
+  )
+  expect_error(
+    {
+      learner <- lrn("cmprsk.crr", initList = list("3" = c(0.1, 0.2, 0.3))) # Wrong event
+      learner$train(task)
+    },
+    "initList must have entries for all events in task\\$cmp_events"
+  )
+})
+

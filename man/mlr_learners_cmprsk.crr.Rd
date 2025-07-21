@@ -16,7 +16,7 @@ for specified event types across unique event times from training data.
 \section{Public Methods}{
 
 \describe{
-\item{\code{initialize(cov2_info, maxiter, gtol, parallel)}}{
+\item{\code{initialize(cov2_info, maxiter, gtol, parallel, initList)}}{
 Creates a new instance of this learner.}
 \item{\code{convergence()}}{
 Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
@@ -41,11 +41,11 @@ learner <- lrn("cmprsk.crr",
   ),
   maxiter = 100,
   gtol = 1e-6,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1))
 )
 learner$train(task)
 pred <- learner$predict(task)
-print(pred)
 learner$convergence()
 learner$importance()
 }
@@ -94,7 +94,8 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
   cov2_info = NULL,
   maxiter = 100L,
   gtol = 1e-06,
-  parallel = FALSE
+  parallel = FALSE,
+  initList = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -126,6 +127,13 @@ Default: 1e-6, range: 1e-9 to 1e-3.}
 Use parallel processing via
 \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
 Default: \code{FALSE}. Requires \code{future.apply}.}
+
+\item{\code{initList}}{\code{list()} \cr
+Named list of initial values for regression parameters, with one
+numeric vector per event (names matching \code{task$cmp_events}).
+Each vector's length must match the number of covariates in \code{cov1}
+(and \code{cov2} if time-varying covariates are used). Default: \code{NULL}
+(uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).}
 }
 \if{html}{\out{</div>}}
 }

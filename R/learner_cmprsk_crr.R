@@ -1,4 +1,4 @@
-message("LearnerCompRisksFineGrayCRR updated at 2025-07-20 9:07")
+message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
 
 #' @title Fine-Gray Competing Risks Regression
 #' @name mlr_learners_cmprsk.crr
@@ -18,7 +18,7 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-20 9:07")
 #'
 #' @section Public Methods:
 #' \describe{
-#'   \item{\code{initialize(cov2_info, maxiter, gtol, parallel)}}{
+#'   \item{\code{initialize(cov2_info, maxiter, gtol, parallel, initList)}}{
 #'     Creates a new instance of this learner.}
 #'   \item{\code{convergence()}}{
 #'     Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
@@ -55,11 +55,11 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-20 9:07")
 #'   ),
 #'   maxiter = 100,
 #'   gtol = 1e-6,
-#'   parallel = FALSE
+#'   parallel = FALSE,
+#'   initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1))
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
-#' print(pred)
 #' learner$convergence()
 #' learner$importance()
 LearnerCompRisksFineGrayCRR <- R6::R6Class(
@@ -75,7 +75,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
     #'     \item \code{cov2nms}: Character vector of covariate names
     #'       (e.g., "age", "bili").
     #'     \item \code{tf}: Function transforming time values (returns
-    #'       a matrix with >= 2 columns).
+    #'       a matrix).
     #'     \item \code{cov2only}: Optional character vector of covariates
     #'       to exclude from fixed effects.
     #'   }
@@ -91,8 +91,14 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
     #'   Use parallel processing via
     #'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
     #'   Default: \code{FALSE}. Requires \code{future.apply}.
-    initialize = function(cov2_info = NULL, maxiter = 100L,
-                         gtol = 1e-6, parallel = FALSE) {
+    #' @param initList `list()` \cr
+    #'   Named list of initial values for regression parameters, with one
+    #'   numeric vector per event (names matching \code{task$cmp_events}).
+    #'   Each vector's length must match the number of covariates in \code{cov1}
+    #'   (and \code{cov2} if time-varying covariates are used). Default: \code{NULL}
+    #'   (uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).
+    initialize = function(cov2_info = NULL, maxiter = 100L, gtol = 1e-6,
+                         parallel = FALSE, initList = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
@@ -112,6 +118,15 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           }
         }
       }
+      if (!is.null(initList)) {
+        if (!is.list(initList)) stop("initList must be a list")
+        if (!all(sapply(initList, is.numeric))) {
+          stop("initList must contain numeric vectors")
+        }
+        if (length(names(initList)) == 0 || any(names(initList) == "")) {
+          stop("initList must have non-empty names for each event")
+        }
+      }
       ps <- paradox::ps(
         maxiter = paradox::p_int(
           default = 100L, lower = 1L, upper = 1000L, tags = "train"
@@ -120,15 +135,18 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"
         ),
         parallel = paradox::p_lgl(default = FALSE, tags = "train"),
-        cov2_info = paradox::p_uty(default = NULL, tags = "train")
+        cov2_info = paradox::p_uty(default = NULL, tags = "train"),
+        initList = paradox::p_uty(default = NULL, tags = "train")
       )
       ps$values <- list(
         maxiter = maxiter,
         gtol = gtol,
         parallel = parallel,
-        cov2_info = cov2_info
+        cov2_info = cov2_info,
+        initList = initList
       )
       private$cov2_info <- cov2_info
+      private$initList <- initList
 
       super$initialize(
         id = "cmprsk.crr",
@@ -179,6 +197,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
 
   private = list(
     cov2_info = NULL,
+    initList = NULL,
 
     # Wrapper function for cmprsk::crr
     crr_wrapper = function(ftime, fstatus, cov1, cov2 = NULL, tf = NULL,
@@ -284,25 +303,25 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       event_levels <- as.character(task$cmp_events)
       fstatus <- as.numeric(full_data[[event_col]])
 
+      if (!is.null(pv$initList)) {
+        n_cov <- ncol(cov1) + (if (is.null(cov2)) 0 else ncol(as.matrix(cov2)))
+        for (event in names(pv$initList)) {
+          init_vec <- pv$initList[[event]]
+          if (length(init_vec) != n_cov) {
+            stop(sprintf("initList for event %s must have %d values", event, n_cov))
+          }
+          if (!is.numeric(init_vec) || any(is.na(init_vec))) {
+            stop(sprintf("initList for event %s must be a numeric vector with no NAs", event))
+          }
+        }
+        if (!all(event_levels %in% names(pv$initList))) {
+          stop("initList must have entries for all events in task$cmp_events")
+        }
+      }
+
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
                            tf_final, pv) {
-        # Input validation
-        if (!is.numeric(ftime) || any(is.na(ftime))) {
-          stop("ftime must be a non-NA numeric vector")
-        }
-        if (!is.numeric(fstatus) && !is.integer(fstatus)) {
-          stop("fstatus must be a numeric or integer vector")
-        }
-        if (!is.matrix(cov1) || any(is.na(cov1))) {
-          stop("cov1 must be a non-NA matrix")
-        }
-        if (!is.null(cov2) && (!is.matrix(cov2) || any(is.na(cov2)))) {
-          stop("cov2 must be a non-NA matrix or NULL")
-        }
-        if (!is.null(tf_final) && !is.function(tf_final)) {
-          stop("tf_final must be a function or NULL")
-        }
-
+        init <- if (!is.null(pv$initList)) pv$initList[[target_event]] else NULL
         tryCatch({
           private$crr_wrapper(
             ftime = ftime,
@@ -313,7 +332,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
             failcode = as.integer(target_event),
             cencode = 0L,
             maxiter = pv$maxiter,
-            gtol = pv$gtol
+            gtol = pv$gtol,
+            init = init
           )
         }, warning = function(w) {
           warning(sprintf("Convergence warning for event %s: %s",
