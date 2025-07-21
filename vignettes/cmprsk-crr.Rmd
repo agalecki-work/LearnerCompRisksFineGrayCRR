@@ -73,15 +73,14 @@ print(learner$model)
 ```
 
 The learner is initialized with default parameters: 
-`maxiter = 100` for maximum iterations and `gtol = 1e-6` for convergence tolerance.
+`maxiter = 100` for maximum iterations and `gtol = 1e-6`
+for convergence tolerance.
 
 
 
 
 ## Time-Varying Covariates
 
-
-`
 Train the model with time-varying covariates, where `bili` is used only
 as a time-varying effect:
 

@@ -1,4 +1,4 @@
-#' @title Fine Permanently Deleted Fine-Gray Competing Risks Regression
+#' @title Fine-Gray Competing Risks Regression
 #' @name mlr_learners_cmprsk.crr
 #' @templateVar id cmprsk.crr
 #' @templateVar caller [cmprsk::crr()]
