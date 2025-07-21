@@ -287,3 +287,54 @@ test_that("LearnerCompRisksFineGrayCRR works with initList", {
   )
 })
 
+library(testthat)
+
+test_that("cengroup extracted from task$backend works", {
+  task <- tsk("pbc")
+  feat = c("age", "bili", "sex")
+  task$select(feat)
+  task$set_col_roles(cols = "status", add_to = "stratum")
+  learner <- lrn("cmprsk.crr", censor_group = "edema")
+  expect_silent(learner$train(task))
+  expect_true(all(names(learner$state$convergence) %in% task$cmp_events))
+})
+
+
+
+test_that("cengroup NULL works", {
+  task <- tsk("pbc")
+  feat = c("age", "bili", "sex")
+  task$select(feat)
+  learner <- lrn("cmprsk.crr", censor_group = NULL)
+  expect_silent(learner$train(task))
+})
+
+test_that("cengroup with invalid column fails", {
+  task <- tsk("pbc")
+  feat = c("age", "bili", "sex")
+  task$select(feat)
+  learner <- lrn("cmprsk.crr", censor_group = "invalid_col")
+  expect_error(learner$train(task), "censor_group column 'invalid_col' not found in task data")
+})
+
+
+test_that("resampling with stratum is unaffected", {
+  task <- tsk("pbc")
+  feat = c("age", "bili", "sex")
+  task$select(feat)
+  task$set_col_roles(cols = "status", add_to = "stratum")
+  learner <- lrn("cmprsk.crr", censor_group = "edema")
+  resampling <- rsmp("cv", folds = 3)
+  rr <- resample(task, learner, resampling)
+  expect_true(is.environment(rr$prediction()))
+})
+
+test_that("prediction works after training", {
+  task <- tsk("pbc")
+  feat = c("age", "bili", "sex")
+  task$select(feat)
+  learner <- lrn("cmprsk.crr", censor_group = "edema")
+  learner$train(task)
+  pred <- learner$predict(task)
+  expect_true(inherits(pred, "PredictionCompRisks"))
+})

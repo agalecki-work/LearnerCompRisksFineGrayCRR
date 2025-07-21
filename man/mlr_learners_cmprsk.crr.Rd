@@ -3,7 +3,7 @@
 \name{mlr_learners_cmprsk.crr}
 \alias{mlr_learners_cmprsk.crr}
 \alias{LearnerCompRisksFineGrayCRR}
-\title{Fine-Gray Competing Risks Regression}
+\title{Fine Permanently Deleted Fine-Gray Competing Risks Regression}
 \description{
 Fits a Fine-Gray competing risks regression model using
 \code{\link[cmprsk:crr]{cmprsk::crr}} from the \code{cmprsk} package.
@@ -13,15 +13,40 @@ and time-varying covariates. Predictions are generated using
 \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
 for specified event types across unique event times from training data.
 }
-\section{Public Methods}{
+\section{Parameters}{
 
 \describe{
-\item{\code{initialize(cov2_info, maxiter, gtol, parallel, initList)}}{
-Creates a new instance of this learner.}
-\item{\code{convergence()}}{
-Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
-\item{\code{importance()}}{
-Returns coefficient-based variable importance for each event as a data frame.}
+\item{cov2_info}{\code{list()} \cr
+Configuration for time-varying covariates. A list with:
+\itemize{
+\item \code{cov2nms}: Character vector of covariate names (e.g., "age", "bili").
+\item \code{tf}: Function transforming time values (returns a matrix).
+\item \code{cov2only}: Optional character vector of covariates to exclude from fixed effects.
+}
+Default is \code{NULL} for fixed covariates only. See vignette or examples in \code{inst/examples/}.
+}
+\item{maxiter}{\code{integer(1)} \cr
+Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 100, range: 1 to 1000.
+}
+\item{gtol}{\code{numeric(1)} \cr
+Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6, range: 1e-9 to 1e-3.
+}
+\item{parallel}{\code{logical(1)} \cr
+Use parallel processing via \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
+Default: \code{FALSE}. Requires \code{future.apply}.
+}
+\item{initList}{\code{list()} \cr
+Named list of initial values for regression parameters, with one numeric vector per event
+(names matching \code{task$cmp_events}). Each vector's length must match the number of
+covariates in \code{cov1} (and \code{cov2} if time-varying covariates are used).
+Default: \code{NULL} (uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).
+}
+\item{censor_group}{\code{character(1)} \cr
+Column name in the task's data specifying groups with different censoring
+distributions for \code{\link[cmprsk:crr]{cmprsk::crr}}. Must be a single
+valid column name in \code{task$backend}. Default: \code{NULL} (assumes a single
+censoring distribution).
+}
 }
 }
 
@@ -32,7 +57,9 @@ if (!requireNamespace("cmprsk", quietly = TRUE)) {
   stop("Package 'cmprsk' must be installed")
 }
 task <- tsk("pbc")
-task$select(c("age", "bili", "sex"))
+feat <- c("age", "bili", "sex")
+task$select(feat)
+task$set_col_roles(cols = "status", add_to = "stratum")
 learner <- lrn("cmprsk.crr",
   cov2_info = list(
     cov2nms = c("age", "sex"),
@@ -42,12 +69,17 @@ learner <- lrn("cmprsk.crr",
   maxiter = 100,
   gtol = 1e-6,
   parallel = FALSE,
-  initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1))
+  initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
+  censor_group = "edema"
 )
 learner$train(task)
 pred <- learner$predict(task)
 learner$convergence()
 learner$importance()
+# Resampling with stratification
+resampling <- rsmp("cv", folds = 3)
+rr <- resample(task, learner, resampling)
+
 }
 \references{
 Fine, J. P., & Gray, R. J. (1999). A Proportional Hazards Model for
@@ -88,14 +120,15 @@ Statistical Association}, 94(446), 496--509.
 \if{html}{\out{<a id="method-LearnerCompRisksFineGrayCRR-new"></a>}}
 \if{latex}{\out{\hypertarget{method-LearnerCompRisksFineGrayCRR-new}{}}}
 \subsection{Method \code{new()}}{
-Creates a new instance of this \link[R6:R6Class]{R6} class.
+Creates a new instance of this learner.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LearnerCompRisksFineGrayCRR$new(
   cov2_info = NULL,
   maxiter = 100L,
   gtol = 1e-06,
   parallel = FALSE,
-  initList = NULL
+  initList = NULL,
+  censor_group = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -105,35 +138,26 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
 \item{\code{cov2_info}}{\code{list()} \cr
 Configuration for time-varying covariates. A list with:
 \itemize{
-\item \code{cov2nms}: Character vector of covariate names
-(e.g., "age", "bili").
-\item \code{tf}: Function transforming time values (returns
-a matrix).
-\item \code{cov2only}: Optional character vector of covariates
-to exclude from fixed effects.
+\item \code{cov2nms}: Character vector of covariate names (e.g., "age", "bili").
+\item \code{tf}: Function transforming time values (returns a matrix).
+\item \code{cov2only}: Optional character vector of covariates to exclude from fixed effects.
 }
-Default is \code{NULL} for fixed covariates only. See vignette
-or examples in \verb{inst/examples/}.}
+Default is \code{NULL} for fixed covariates only.}
 
 \item{\code{maxiter}}{\code{integer(1)} \cr
-Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-Default: 100, range: 1 to 1000.}
+Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 100.}
 
 \item{\code{gtol}}{\code{numeric(1)} \cr
-Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-Default: 1e-6, range: 1e-9 to 1e-3.}
+Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6.}
 
 \item{\code{parallel}}{\code{logical(1)} \cr
-Use parallel processing via
-\code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
-Default: \code{FALSE}. Requires \code{future.apply}.}
+Use parallel processing. Default: \code{FALSE}.}
 
 \item{\code{initList}}{\code{list()} \cr
-Named list of initial values for regression parameters, with one
-numeric vector per event (names matching \code{task$cmp_events}).
-Each vector's length must match the number of covariates in \code{cov1}
-(and \code{cov2} if time-varying covariates are used). Default: \code{NULL}
-(uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).}
+Initial values for regression parameters per event. Default: \code{NULL}.}
+
+\item{\code{censor_group}}{\code{character(1)} \cr
+Column name specifying censoring groups. See class documentation for details.}
 }
 \if{html}{\out{</div>}}
 }
@@ -142,26 +166,29 @@ Each vector's length must match the number of covariates in \code{cov1}
 \if{html}{\out{<a id="method-LearnerCompRisksFineGrayCRR-convergence"></a>}}
 \if{latex}{\out{\hypertarget{method-LearnerCompRisksFineGrayCRR-convergence}{}}}
 \subsection{Method \code{convergence()}}{
-Returns convergence status for each event model.
+Returns a named list indicating convergence status (\code{TRUE}/\code{FALSE}) for each event model.
+Raises an error if the model has not been trained.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LearnerCompRisksFineGrayCRR$convergence()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{
-Named list with \code{TRUE}/\code{FALSE} for each event.
+A named list with convergence status for each event.
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-LearnerCompRisksFineGrayCRR-importance"></a>}}
 \if{latex}{\out{\hypertarget{method-LearnerCompRisksFineGrayCRR-importance}{}}}
 \subsection{Method \code{importance()}}{
-Returns coefficient-based variable importance for each event.
+Returns a data frame with coefficient-based variable importance for each event.
+Importance is calculated as the absolute value of coefficients divided by their sum per event.
+Raises an error if the model has not been trained.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{LearnerCompRisksFineGrayCRR$importance()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{
-Data frame with columns: \code{variable}, \code{importance}, \code{event}.
+A data frame with columns \code{variable}, \code{importance}, and \code{event}.
 }
 }
 \if{html}{\out{<hr>}}

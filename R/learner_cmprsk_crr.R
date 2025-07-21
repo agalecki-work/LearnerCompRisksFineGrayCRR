@@ -1,6 +1,4 @@
-message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
-
-#' @title Fine-Gray Competing Risks Regression
+#' @title Fine Permanently Deleted Fine-Gray Competing Risks Regression
 #' @name mlr_learners_cmprsk.crr
 #' @templateVar id cmprsk.crr
 #' @templateVar caller [cmprsk::crr()]
@@ -16,14 +14,39 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
 #' \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
 #' for specified event types across unique event times from training data.
 #'
-#' @section Public Methods:
+#' @section Parameters:
 #' \describe{
-#'   \item{\code{initialize(cov2_info, maxiter, gtol, parallel, initList)}}{
-#'     Creates a new instance of this learner.}
-#'   \item{\code{convergence()}}{
-#'     Returns convergence status for each event model (\code{TRUE}/\code{FALSE}).}
-#'   \item{\code{importance()}}{
-#'     Returns coefficient-based variable importance for each event as a data frame.}
+#'   \item{cov2_info}{\code{list()} \cr
+#'     Configuration for time-varying covariates. A list with:
+#'     \itemize{
+#'       \item \code{cov2nms}: Character vector of covariate names (e.g., "age", "bili").
+#'       \item \code{tf}: Function transforming time values (returns a matrix).
+#'       \item \code{cov2only}: Optional character vector of covariates to exclude from fixed effects.
+#'     }
+#'     Default is \code{NULL} for fixed covariates only. See vignette or examples in \code{inst/examples/}.
+#'   }
+#'   \item{maxiter}{\code{integer(1)} \cr
+#'     Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 100, range: 1 to 1000.
+#'   }
+#'   \item{gtol}{\code{numeric(1)} \cr
+#'     Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6, range: 1e-9 to 1e-3.
+#'   }
+#'   \item{parallel}{\code{logical(1)} \cr
+#'     Use parallel processing via \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
+#'     Default: \code{FALSE}. Requires \code{future.apply}.
+#'   }
+#'   \item{initList}{\code{list()} \cr
+#'     Named list of initial values for regression parameters, with one numeric vector per event
+#'     (names matching \code{task$cmp_events}). Each vector's length must match the number of
+#'     covariates in \code{cov1} (and \code{cov2} if time-varying covariates are used).
+#'     Default: \code{NULL} (uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).
+#'   }
+#'   \item{censor_group}{\code{character(1)} \cr
+#'     Column name in the task's data specifying groups with different censoring
+#'     distributions for \code{\link[cmprsk:crr]{cmprsk::crr}}. Must be a single
+#'     valid column name in \code{task$backend}. Default: \code{NULL} (assumes a single
+#'     censoring distribution).
+#'   }
 #' }
 #'
 #' @references
@@ -38,7 +61,6 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
 #' @importFrom cmprsk crr
 #' @import R6
 #'
-#' @export
 #' @examples
 #' library(mlr3)
 #' library(mlr3proba)
@@ -46,7 +68,9 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
 #'   stop("Package 'cmprsk' must be installed")
 #' }
 #' task <- tsk("pbc")
-#' task$select(c("age", "bili", "sex"))
+#' feat <- c("age", "bili", "sex")
+#' task$select(feat)
+#' task$set_col_roles(cols = "status", add_to = "stratum")
 #' learner <- lrn("cmprsk.crr",
 #'   cov2_info = list(
 #'     cov2nms = c("age", "sex"),
@@ -56,56 +80,53 @@ message("LearnerCompRisksFineGrayCRR updated at 2025-07-21 08:45")
 #'   maxiter = 100,
 #'   gtol = 1e-6,
 #'   parallel = FALSE,
-#'   initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1))
+#'   initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
+#'   censor_group = "edema"
 #' )
 #' learner$train(task)
 #' pred <- learner$predict(task)
 #' learner$convergence()
 #' learner$importance()
+#' # Resampling with stratification
+#' resampling <- rsmp("cv", folds = 3)
+#' rr <- resample(task, learner, resampling)
+#'
+#' @export
 LearnerCompRisksFineGrayCRR <- R6::R6Class(
   "LearnerCompRisksFineGrayCRR",
   inherit = mlr3proba::LearnerCompRisks,
   public = list(
+    #' @method initialize LearnerCompRisksFineGrayCRR
     #' @description
-    #' Creates a new instance of this [R6][R6::R6Class] class.
+    #' Creates a new instance of this learner.
     #'
-    #' @param cov2_info `list()` \cr
+    #' @param cov2_info \code{list()} \cr
     #'   Configuration for time-varying covariates. A list with:
     #'   \itemize{
-    #'     \item \code{cov2nms}: Character vector of covariate names
-    #'       (e.g., "age", "bili").
-    #'     \item \code{tf}: Function transforming time values (returns
-    #'       a matrix).
-    #'     \item \code{cov2only}: Optional character vector of covariates
-    #'       to exclude from fixed effects.
+    #'     \item \code{cov2nms}: Character vector of covariate names (e.g., "age", "bili").
+    #'     \item \code{tf}: Function transforming time values (returns a matrix).
+    #'     \item \code{cov2only}: Optional character vector of covariates to exclude from fixed effects.
     #'   }
-    #'   Default is \code{NULL} for fixed covariates only. See vignette
-    #'   or examples in `inst/examples/`.
-    #' @param maxiter `integer(1)` \cr
-    #'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-    #'   Default: 100, range: 1 to 1000.
-    #' @param gtol `numeric(1)` \cr
-    #'   Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}.
-    #'   Default: 1e-6, range: 1e-9 to 1e-3.
-    #' @param parallel `logical(1)` \cr
-    #'   Use parallel processing via
-    #'   \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
-    #'   Default: \code{FALSE}. Requires \code{future.apply}.
-    #' @param initList `list()` \cr
-    #'   Named list of initial values for regression parameters, with one
-    #'   numeric vector per event (names matching \code{task$cmp_events}).
-    #'   Each vector's length must match the number of covariates in \code{cov1}
-    #'   (and \code{cov2} if time-varying covariates are used). Default: \code{NULL}
-    #'   (uses all zeros as per \code{\link[cmprsk:crr]{cmprsk::crr}}).
+    #'   Default is \code{NULL} for fixed covariates only.
+    #' @param maxiter \code{integer(1)} \cr
+    #'   Maximum iterations for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 100.
+    #' @param gtol \code{numeric(1)} \cr
+    #'   Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6.
+    #' @param parallel \code{logical(1)} \cr
+    #'   Use parallel processing. Default: \code{FALSE}.
+    #' @param initList \code{list()} \cr
+    #'   Initial values for regression parameters per event. Default: \code{NULL}.
+    #' @param censor_group \code{character(1)} \cr
+    #'   Column name specifying censoring groups. See class documentation for details.
+    #' @export
     initialize = function(cov2_info = NULL, maxiter = 100L, gtol = 1e-6,
-                         parallel = FALSE, initList = NULL) {
+                         parallel = FALSE, initList = NULL, censor_group = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
           stop("cov2_info must contain 'cov2nms' and 'tf'")
         }
-        if (!is.character(cov2_info$cov2nms) ||
-            length(cov2_info$cov2nms) == 0) {
+        if (!is.character(cov2_info$cov2nms) || length(cov2_info$cov2nms) == 0) {
           stop("cov2nms must be a non-empty character vector")
         }
         if (!is.function(cov2_info$tf)) stop("tf must be a function")
@@ -127,27 +148,27 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           stop("initList must have non-empty names for each event")
         }
       }
+      if (!is.null(censor_group) && (!is.character(censor_group) || length(censor_group) != 1)) {
+        stop("censor_group must be a single character string (column name)")
+      }
       ps <- paradox::ps(
-        maxiter = paradox::p_int(
-          default = 100L, lower = 1L, upper = 1000L, tags = "train"
-        ),
-        gtol = paradox::p_dbl(
-          default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"
-        ),
+        maxiter = paradox::p_int(default = 100L, lower = 1L, upper = 1000L, tags = "train"),
+        gtol = paradox::p_dbl(default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"),
         parallel = paradox::p_lgl(default = FALSE, tags = "train"),
         cov2_info = paradox::p_uty(default = NULL, tags = "train"),
-        initList = paradox::p_uty(default = NULL, tags = "train")
+        initList = paradox::p_uty(default = NULL, tags = "train"),
+        censor_group = paradox::p_uty(default = NULL, tags = "train")
       )
       ps$values <- list(
         maxiter = maxiter,
         gtol = gtol,
         parallel = parallel,
         cov2_info = cov2_info,
-        initList = initList
+        initList = initList,
+        censor_group = censor_group
       )
       private$cov2_info <- cov2_info
       private$initList <- initList
-
       super$initialize(
         id = "cmprsk.crr",
         param_set = ps,
@@ -160,10 +181,13 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       )
     },
 
+    #' @method convergence LearnerCompRisksFineGrayCRR
     #' @description
-    #' Returns convergence status for each event model.
+    #' Returns a named list indicating convergence status (\code{TRUE}/\code{FALSE}) for each event model.
+    #' Raises an error if the model has not been trained.
     #'
-    #' @return Named list with \code{TRUE}/\code{FALSE} for each event.
+    #' @return A named list with convergence status for each event.
+    #' @export
     convergence = function() {
       if (is.null(self$state$convergence)) {
         stop("Model has not been trained yet")
@@ -171,10 +195,14 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       self$state$convergence
     },
 
+    #' @method importance LearnerCompRisksFineGrayCRR
     #' @description
-    #' Returns coefficient-based variable importance for each event.
+    #' Returns a data frame with coefficient-based variable importance for each event.
+    #' Importance is calculated as the absolute value of coefficients divided by their sum per event.
+    #' Raises an error if the model has not been trained.
     #'
-    #' @return Data frame with columns: \code{variable}, \code{importance}, \code{event}.
+    #' @return A data frame with columns \code{variable}, \code{importance}, and \code{event}.
+    #' @export
     importance = function() {
       if (is.null(self$state$model)) {
         stop("Model has not been trained yet")
@@ -199,7 +227,6 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
     cov2_info = NULL,
     initList = NULL,
 
-    # Wrapper function for cmprsk::crr
     crr_wrapper = function(ftime, fstatus, cov1, cov2 = NULL, tf = NULL,
                           cengroup = NULL, failcode = 1, cencode = 0,
                           subset = NULL, na.action = na.omit,
@@ -232,13 +259,25 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       if (!inherits(task, "Task")) stop("Task must be a valid mlr3 task")
       if (!all(row_ids %in% task$row_ids)) stop("Invalid row_ids")
       pv <- self$param_set$get_values(tags = "train")
+
+      # Extract censor_group from task$backend
+      cengroup <- if (!is.null(pv$censor_group)) {
+        if (!pv$censor_group %in% task$backend$colnames) {
+          stop(sprintf("censor_group column '%s' not found in task data", pv$censor_group))
+        }
+        task$backend$data(rows = row_ids, cols = pv$censor_group)[[pv$censor_group]]
+      } else {
+        NULL
+      }
+      if (!is.null(cengroup) && any(is.na(cengroup))) {
+        stop("censor_group contains missing values")
+      }
+
       full_data <- task$data(rows = row_ids)
       features <- task$feature_names
       time_col <- task$target_names[1]
       event_col <- task$target_names[2]
-      if (!is.numeric(full_data[[time_col]])) {
-        stop("Time column must be numeric")
-      }
+      if (!is.numeric(full_data[[time_col]])) stop("Time column must be numeric")
       if (!is.numeric(full_data[[event_col]]) && !is.integer(full_data[[event_col]])) {
         stop("Event column must be numeric or integer")
       }
@@ -249,9 +288,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
         cov1_features <- setdiff(features, pv$cov2_info$cov2only)
       }
       if (length(cov1_features) > 0) {
-        formula <- as.formula(
-          paste("~", paste(cov1_features, collapse = " + "))
-        )
+        formula <- as.formula(paste("~", paste(cov1_features, collapse = " + ")))
         cov1 <- model.matrix(formula, data = full_data)[, -1, drop = FALSE]
         if (any(is.na(cov1))) stop("NAs detected in cov1")
         self$state$cov1_formula <- formula
@@ -269,12 +306,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
             stop(sprintf("cov2nms element '%s' not in task features", nm))
           }
         }
-        cov2_formulas <- lapply(cov2nms, function(nm) {
-          as.formula(paste("~", nm))
-        })
-        cov2_list <- lapply(cov2_formulas, function(f) {
-          model.matrix(f, data = full_data)[, -1, drop = FALSE]
-        })
+        cov2_formulas <- lapply(cov2nms, function(nm) as.formula(paste("~", nm)))
+        cov2_list <- lapply(cov2_formulas, function(f) model.matrix(f, data = full_data)[, -1, drop = FALSE])
         cov2 <- do.call(cbind, cov2_list)
         if (ncol(cov2) == 1) cov2 <- as.vector(cov2)
         if (any(is.na(cov2))) stop("NAs detected in cov2")
@@ -285,10 +318,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           stop("tf output must have rows equal to unique failure times")
         }
         if (ncol(tf_out) != ncol(as.matrix(cov2))) {
-          stop(sprintf(
-            "tf must return a matrix with %d columns",
-            ncol(as.matrix(cov2))
-          ))
+          stop(sprintf("tf must return a matrix with %d columns", ncol(as.matrix(cov2))))
         }
         tf_final <- tf
         self$state$cov2_formulas <- cov2_formulas
@@ -320,7 +350,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       }
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
-                           tf_final, pv) {
+                           tf_final, pv, cengroup) {
         init <- if (!is.null(pv$initList)) pv$initList[[target_event]] else NULL
         tryCatch({
           private$crr_wrapper(
@@ -329,6 +359,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
             cov1 = cov1,
             cov2 = cov2,
             tf = tf_final,
+            cengroup = cengroup,
             failcode = as.integer(target_event),
             cencode = 0L,
             maxiter = pv$maxiter,
@@ -336,12 +367,10 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
             init = init
           )
         }, warning = function(w) {
-          warning(sprintf("Convergence warning for event %s: %s",
-                         target_event, w$message))
+          warning(sprintf("Convergence warning for event %s: %s", target_event, w$message))
           NULL
         }, error = function(e) {
-          stop(sprintf("Failed to train model for event %s: %s",
-                      target_event, e$message))
+          stop(sprintf("Failed to train model for event %s: %s", target_event, e$message))
         })
       }
 
@@ -357,6 +386,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           cov2 = cov2,
           tf_final = tf_final,
           pv = pv,
+          cengroup = cengroup,
           future.seed = TRUE
         )
       } else {
@@ -367,7 +397,8 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           cov1 = cov1,
           cov2 = cov2,
           tf_final = tf_final,
-          pv = pv
+          pv = pv,
+          cengroup = cengroup
         )
       }
       names(models) <- event_levels
@@ -389,11 +420,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       self$state$cov2 <- cov2
       self$state$tf <- tf_final
       self$state$feature_names <- features
-      self$state$cov2_names <- if (!is.null(cov2)) {
-        colnames(as.matrix(cov2))
-      } else {
-        NULL
-      }
+      self$state$cov2_names <- if (!is.null(cov2)) colnames(as.matrix(cov2)) else NULL
       self$state$all_event_times <- all_event_times
 
       models
@@ -408,10 +435,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       names(cif_list) <- event_levels
 
       if (!is.null(self$state$cov1_formula)) {
-        cov1 <- model.matrix(
-          self$state$cov1_formula,
-          data = newdata
-        )[, -1, drop = FALSE]
+        cov1 <- model.matrix(self$state$cov1_formula, data = newdata)[, -1, drop = FALSE]
         if (ncol(cov1) == 0) {
           cov1 <- matrix(0, nrow = nrow(newdata), ncol = 1)
           colnames(cov1) <- "dummy"
