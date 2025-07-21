@@ -108,7 +108,7 @@ Configuration for time-varying covariates. A list with:
 \item \code{cov2nms}: Character vector of covariate names
 (e.g., "age", "bili").
 \item \code{tf}: Function transforming time values (returns
-a matrix with >= 2 columns).
+a matrix).
 \item \code{cov2only}: Optional character vector of covariates
 to exclude from fixed effects.
 }

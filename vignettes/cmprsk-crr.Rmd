@@ -97,7 +97,8 @@ learner_tv <- lrn("cmprsk.crr",
   parallel = FALSE
 )
 learner_tv$train(task, row_ids = part$train)
-print(learner_tv$param_set)
+pset <- learner_tv$param_set # Parameters info extracted for illustration
+print(pset)
 print(learner_tv$model)
 
 ```
