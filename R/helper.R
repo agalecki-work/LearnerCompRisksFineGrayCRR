@@ -19,8 +19,8 @@ skip_if_not_installed <- function(pkg) {
 #' @return An mlr3 task.
 #' @keywords internal
 # Task configuration function
-configure_task <- function(taskName ="pbc", stratum = NULL, features = "trt") {
-  task <- mlr3::tsk(taskName)
+configure_task <- function(task_name = "pbc", stratum = NULL, features = "trt") {
+  task <- mlr3::tsk(task_name)
   data_cols <- names(task$data())
   if (!is.null(stratum) && !stratum %in% data_cols) {
     stop(sprintf("Stratum variable '%s' not found in task", stratum))
@@ -49,4 +49,3 @@ create_partition <- function(task, ratio = 0.7) {
   set.seed(123)
   mlr3::partition(task, ratio = ratio)
 }
-

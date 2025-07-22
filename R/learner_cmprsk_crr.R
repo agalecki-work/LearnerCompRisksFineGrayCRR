@@ -35,7 +35,7 @@
 #'     Use parallel processing via \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
 #'     Default: \code{FALSE}. Requires \code{future.apply}.
 #'   }
-#'   \item{initList}{\code{list()} \cr
+#'   \item{init_list}{\code{list()} \cr
 #'     Named list of initial values for regression parameters, with one numeric vector per event
 #'     (names matching \code{task$cmp_events}). Each vector's length must match the number of
 #'     covariates in \code{cov1} (and \code{cov2} if time-varying covariates are used).
@@ -80,7 +80,7 @@
 #'   maxiter = 100,
 #'   gtol = 1e-6,
 #'   parallel = FALSE,
-#'   initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
+#'   init_list = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
 #'   censor_group = "edema"
 #' )
 #' learner$train(task)
@@ -114,13 +114,13 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
     #'   Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6.
     #' @param parallel \code{logical(1)} \cr
     #'   Use parallel processing. Default: \code{FALSE}.
-    #' @param initList \code{list()} \cr
+    #' @param init_list \code{list()} \cr
     #'   Initial values for regression parameters per event. Default: \code{NULL}.
     #' @param censor_group \code{character(1)} \cr
     #'   Column name specifying censoring groups. See class documentation for details.
     #' @export
     initialize = function(cov2_info = NULL, maxiter = 100L, gtol = 1e-6,
-                         parallel = FALSE, initList = NULL, censor_group = NULL) {
+                          parallel = FALSE, init_list = NULL, censor_group = NULL) {
       if (!is.null(cov2_info)) {
         if (!is.list(cov2_info)) stop("cov2_info must be a list")
         if (!all(c("cov2nms", "tf") %in% names(cov2_info))) {
@@ -139,13 +139,13 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
           }
         }
       }
-      if (!is.null(initList)) {
-        if (!is.list(initList)) stop("initList must be a list")
-        if (!all(sapply(initList, is.numeric))) {
-          stop("initList must contain numeric vectors")
+      if (!is.null(init_list)) {
+        if (!is.list(init_list)) stop("init_list must be a list")
+        if (!all(sapply(init_list, is.numeric))) {
+          stop("init_list must contain numeric vectors")
         }
-        if (length(names(initList)) == 0 || any(names(initList) == "")) {
-          stop("initList must have non-empty names for each event")
+        if (length(names(init_list)) == 0 || any(names(init_list) == "")) {
+          stop("init_list must have non-empty names for each event")
         }
       }
       if (!is.null(censor_group) && (!is.character(censor_group) || length(censor_group) != 1)) {
@@ -156,7 +156,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
         gtol = paradox::p_dbl(default = 1e-6, lower = 1e-9, upper = 1e-3, tags = "train"),
         parallel = paradox::p_lgl(default = FALSE, tags = "train"),
         cov2_info = paradox::p_uty(default = NULL, tags = "train"),
-        initList = paradox::p_uty(default = NULL, tags = "train"),
+        init_list = paradox::p_uty(default = NULL, tags = "train"),
         censor_group = paradox::p_uty(default = NULL, tags = "train")
       )
       ps$values <- list(
@@ -164,11 +164,11 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
         gtol = gtol,
         parallel = parallel,
         cov2_info = cov2_info,
-        initList = initList,
+        init_list = init_list,
         censor_group = censor_group
       )
       private$cov2_info <- cov2_info
-      private$initList <- initList
+      private$init_list <- init_list
       super$initialize(
         id = "cmprsk.crr",
         param_set = ps,
@@ -225,13 +225,14 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
 
   private = list(
     cov2_info = NULL,
-    initList = NULL,
+    init_list = NULL,
 
     crr_wrapper = function(ftime, fstatus, cov1, cov2 = NULL, tf = NULL,
-                          cengroup = NULL, failcode = 1, cencode = 0,
-                          subset = NULL, na.action = na.omit,
-                          gtol = 1e-06, maxiter = 10, init = NULL,
-                          variance = TRUE) {
+                           cengroup = NULL, failcode = 1, cencode = 0,
+                           subset = NULL,
+                           na.action = na.omit,  # nolint
+                           gtol = 1e-06, maxiter = 10, init = NULL,
+                           variance = TRUE) {
       if (!requireNamespace("cmprsk", quietly = TRUE)) {
         stop("Package 'cmprsk' is required. Please install it using install.packages('cmprsk').")
       }
@@ -245,7 +246,7 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
         failcode = failcode,
         cencode = cencode,
         subset = substitute(subset),
-        na.action = na.action,
+        na.action = na.action, # noLint
         gtol = gtol,
         maxiter = maxiter,
         init = init,
@@ -333,25 +334,25 @@ LearnerCompRisksFineGrayCRR <- R6::R6Class(
       event_levels <- as.character(task$cmp_events)
       fstatus <- as.numeric(full_data[[event_col]])
 
-      if (!is.null(pv$initList)) {
+      if (!is.null(pv$init_list)) {
         n_cov <- ncol(cov1) + (if (is.null(cov2)) 0 else ncol(as.matrix(cov2)))
-        for (event in names(pv$initList)) {
-          init_vec <- pv$initList[[event]]
+        for (event in names(pv$init_list)) {
+          init_vec <- pv$init_list[[event]]
           if (length(init_vec) != n_cov) {
-            stop(sprintf("initList for event %s must have %d values", event, n_cov))
+            stop(sprintf("init_list for event %s must have %d values", event, n_cov))
           }
           if (!is.numeric(init_vec) || any(is.na(init_vec))) {
-            stop(sprintf("initList for event %s must be a numeric vector with no NAs", event))
+            stop(sprintf("init_list for event %s must be a numeric vector with no NAs", event))
           }
         }
-        if (!all(event_levels %in% names(pv$initList))) {
-          stop("initList must have entries for all events in task$cmp_events")
+        if (!all(event_levels %in% names(pv$init_list))) {
+          stop("init_list must have entries for all events in task$cmp_events")
         }
       }
 
       fit_model <- function(target_event, ftime, fstatus, cov1, cov2,
-                           tf_final, pv, cengroup) {
-        init <- if (!is.null(pv$initList)) pv$initList[[target_event]] else NULL
+                            tf_final, pv, cengroup) {
+        init <- if (!is.null(pv$init_list)) pv$init_list[[target_event]] else NULL
         tryCatch({
           private$crr_wrapper(
             ftime = ftime,

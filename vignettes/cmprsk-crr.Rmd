@@ -12,10 +12,10 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   eval = requireNamespace("mlr3proba", quietly = TRUE) &&
-         requireNamespace("cmprsk", quietly = TRUE) &&
-         requireNamespace("LearnerCompRisksFineGrayCRR", quietly = TRUE) &&
-         requireNamespace("future", quietly = TRUE) &&
-         requireNamespace("future.apply", quietly = TRUE)
+    requireNamespace("cmprsk", quietly = TRUE) &&
+    requireNamespace("LearnerCompRisksFineGrayCRR", quietly = TRUE) &&
+    requireNamespace("future", quietly = TRUE) &&
+    requireNamespace("future.apply", quietly = TRUE)
 )
 ```
 
@@ -32,7 +32,7 @@ see `?LearnerCompRisksFineGrayCRR::mlr_learners_cmprsk.crr`.
 
 # Setup
 
-Load required packages and create a task using the `pbc` dataset:
+Load required packages and create a task from the `pbc` toy task :
 
 ```{r setup}
 library(mlr3)
@@ -42,18 +42,26 @@ if (!requireNamespace("cmprsk", quietly = TRUE)) {
   stop("Package 'cmprsk' must be installed")
 }
 task <- tsk("pbc")
-task$select(c("age", "sex", "bili"))
-task$set_col_roles(cols = "status", add_to = "stratum")
+feat <- c("age", "sex", "bili")
+task$select(feat)
+task$set_col_roles(cols = "trt", add_to = "stratum")
 print(task)
 print(table(task$data()[["status"]]))
+```
+
+The task `task` is configured with age, sex, and bili as features and trt
+as the stratum for task partition and for stratified resampling.
+
+
+
+Task partition:
+
+```{r partition}
 set.seed(123)
 part <- partition(task, ratio = 0.7)
 sapply(part, length) # partition sizes
 
 ```
-
-The `pbc` task is configured with age, sex, and bili as features and status
-as the stratum for competing events.
 
 
 
@@ -66,15 +74,15 @@ as the stratum for competing events.
 Train the Fine-Gray model with fixed (time-invariant) covariates (no time-varying effects):
 
 ```{r train_fixed}
-learner <- lrn("cmprsk.crr", maxiter = 100, gtol = 1e-6, parallel = FALSE)
+learner <- lrn("cmprsk.crr")
 learner$train(task, row_ids = part$train)
 print(learner)
 print(learner$model)
 ```
 
 The learner is initialized with default parameters: 
-`maxiter = 100` for maximum iterations and `gtol = 1e-6`
-for convergence tolerance.
+`maxiter = 100` for maximum iterations, `gtol = 1e-6`
+for convergence tolerance, `parallel=FALSE`, and `cov2_info= NULL`
 
 
 

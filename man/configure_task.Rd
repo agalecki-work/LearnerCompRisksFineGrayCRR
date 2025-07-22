@@ -4,7 +4,7 @@
 \alias{configure_task}
 \title{Configure a task for competing risks analysis}
 \usage{
-configure_task(taskName = "pbc", stratum = NULL, features = "trt")
+configure_task(task_name = "pbc", stratum = NULL, features = "trt")
 }
 \arguments{
 \item{stratum}{Character name of the stratum column.}

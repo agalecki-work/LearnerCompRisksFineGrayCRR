@@ -35,7 +35,7 @@ Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6, 
 Use parallel processing via \code{\link[future.apply:future_lapply]{future.apply::future_lapply}}.
 Default: \code{FALSE}. Requires \code{future.apply}.
 }
-\item{initList}{\code{list()} \cr
+\item{init_list}{\code{list()} \cr
 Named list of initial values for regression parameters, with one numeric vector per event
 (names matching \code{task$cmp_events}). Each vector's length must match the number of
 covariates in \code{cov1} (and \code{cov2} if time-varying covariates are used).
@@ -69,7 +69,7 @@ learner <- lrn("cmprsk.crr",
   maxiter = 100,
   gtol = 1e-6,
   parallel = FALSE,
-  initList = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
+  init_list = list("1" = c(0, 0, 0, 0.1), "2" = c(0, 0, 0, 0.1)),
   censor_group = "edema"
 )
 learner$train(task)
@@ -127,7 +127,7 @@ Creates a new instance of this learner.
   maxiter = 100L,
   gtol = 1e-06,
   parallel = FALSE,
-  initList = NULL,
+  init_list = NULL,
   censor_group = NULL
 )}\if{html}{\out{</div>}}
 }
@@ -153,7 +153,7 @@ Convergence tolerance for \code{\link[cmprsk:crr]{cmprsk::crr}}. Default: 1e-6.}
 \item{\code{parallel}}{\code{logical(1)} \cr
 Use parallel processing. Default: \code{FALSE}.}
 
-\item{\code{initList}}{\code{list()} \cr
+\item{\code{init_list}}{\code{list()} \cr
 Initial values for regression parameters per event. Default: \code{NULL}.}
 
 \item{\code{censor_group}}{\code{character(1)} \cr
