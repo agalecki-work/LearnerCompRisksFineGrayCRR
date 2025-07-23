@@ -14,6 +14,10 @@
 #' \code{\link[cmprsk:predict.crr]{cmprsk::predict.crr}}, providing CIFs
 #' for specified event types across unique event times from training data.
 #'
+#' @param id `character(1)` \cr Identifier for the learner, e.g., \code{[mlr3]{mlr_learners}[[<id>]]}.
+#' @param caller `character(1)` \cr Underlying function used for training the learner, e.g., \code{[cmprsk]{crr}}.
+#' @param predict_method `character(1)` \cr Function used for making predictions, e.g., \code{[cmprsk]{predict.crr}}.
+#'
 #' @section Parameters:
 #' \describe{
 #'   \item{cov2_info}{\code{list()} \cr
