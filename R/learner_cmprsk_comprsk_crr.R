@@ -3,7 +3,7 @@
 #' @templateVar id cmprsk.crr
 #' @templateVar caller [cmprsk::crr()]
 #' @templateVar predict_method [cmprsk::predict.crr()]
-#' @template learner
+
 #'
 #' @description
 #' Fits a Fine-Gray competing risks regression model using

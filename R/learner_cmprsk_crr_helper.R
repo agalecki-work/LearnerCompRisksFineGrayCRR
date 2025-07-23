@@ -13,6 +13,7 @@ skip_if_not_installed <- function(pkg) {
   }
 }
 
+
 #' Configure a task for competing risks analysis
 #' @param features Character vector of feature names.
 #' @param stratum Character name of the stratum column.
