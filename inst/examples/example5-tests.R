@@ -68,7 +68,11 @@ print(learner$convergence())
 # Step 6: Calculate variable importance
 # Compute coefficient-based importance for each feature and event
 cat("Variable importance:\n")
-print(learner$importance())
+print(learner$importance()) # By default for cause 1
+
+print(learner$importance(cause = "1")) # Importance for cause 1
+print(learner$importance(cause = "2")) # Importance for cause 2
+
 
 # Step 7: Compare with direct cmprsk::crr
 # Run cmprsk::crr directly for validation

@@ -1,7 +1,19 @@
-
+library(mlr3)
 library(mlr3proba)
 library(LearnerCompRisksFineGrayCRR)  # Explicitly load the package
 library(testthat)
+
+test_that("LearnerCompRisksFineGrayCRR passes autotest", {
+  skip_if_not_installed("cmprsk")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("survival")
+  skip_if(!exists("run_autotest", envir = asNamespace("mlr3")), "run_autotest not available in mlr3")
+  learner = mlr3::lrn("cmprsk.crr", maxiter = 100, gtol = 1e-6, parallel = FALSE,
+                      cov2_info = NULL, init_list = NULL, censor_group = NULL)
+  expect_silent(result <- mlr3::run_autotest(learner))
+  expect_true(is.list(result))
+  expect_true(all(sapply(result, function(x) x$passed)))
+})
 
 test_that("Task configuration is correct", {
   skip_if_not_installed("mlr3proba")
@@ -132,11 +144,15 @@ test_that("Importance method", {
   part <- create_partition(task)
   learner <- lrn("cmprsk.crr")
   expect_silent(learner$train(task, part$train))
-  imp <- learner$importance()
-  expect_s3_class(imp, "data.frame")
-  expect_equal(ncol(imp), 3)
-  expect_true(all(c("variable", "importance", "event") %in% colnames(imp)))
-  expect_true(all(imp$importance >= 0 & imp$importance <= 1))
+  for (cause in as.character(task$cmp_events)) {
+    imp <- learner$importance(cause = cause)
+    expect_true(is.numeric(imp) || is.null(imp))
+    if (!is.null(imp)) {
+      expect_true(all(imp >= 0))
+      expect_equal(sum(imp), 1, tolerance = 1e-6)
+      expect_true(all(names(imp) %in% c("age", "bili", "sexf")))
+    }
+  }
 })
 
 test_that("Single predictor", {
@@ -313,7 +329,6 @@ test_that("cengroup with invalid column fails", {
   learner <- lrn("cmprsk.crr", censor_group = "invalid_col")
   expect_error(learner$train(task), "censor_group column 'invalid_col' not found in task data")
 })
-
 
 test_that("resampling with stratum is unaffected", {
   task <- tsk("pbc")

@@ -1,5 +1,5 @@
 bibentries <- list(
-  fine1999 = bibentry(
+  finegray1999crr = bibentry(
     bibtype = "Article",
     author = "Fine, Jason P. and Gray, Robert J.",
     title = "A proportional hazards model for the subdistribution of a competing risk",
